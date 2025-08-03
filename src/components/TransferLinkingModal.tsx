@@ -21,7 +21,6 @@ interface TransferLinkingModalProps {
   isOpen: boolean
   onClose: () => void
   transaction: EnhancedUnifiedTransaction | null
-  allTransactions: EnhancedUnifiedTransaction[]
   onLinkingComplete: () => void
 }
 
@@ -29,62 +28,45 @@ export default function TransferLinkingModal({
   isOpen,
   onClose,
   transaction,
-  allTransactions,
   onLinkingComplete
 }: TransferLinkingModalProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [potentialMatches, setPotentialMatches] = useState<EnhancedUnifiedTransaction[]>([])
   const [selectedMatch, setSelectedMatch] = useState<EnhancedUnifiedTransaction | null>(null)
   const [linking, setLinking] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  // Find potential matches when transaction changes
+  // Find potential matches when transaction changes or search term updates
   useEffect(() => {
     if (!transaction) {
       setPotentialMatches([])
       return
     }
 
-    // Find potential matches based on:
-    // 1. Same absolute amount but opposite sign
-    // 2. Different bank
-    // 3. Date within reasonable range (±30 days)
-    const targetAmount = Math.abs(transaction.amount)
-    const transactionDate = new Date(transaction.date)
-    const thirtyDaysAgo = new Date(transactionDate)
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const thirtyDaysLater = new Date(transactionDate)
-    thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30)
+    // Debounce the search to avoid excessive API calls
+    const timeoutId = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const matches = await transactionService.findTransferMatches(
+          transaction,
+          searchTerm || undefined,
+          20 // Limit to 20 results for performance
+        )
+        setPotentialMatches(matches)
+      } catch (error) {
+        console.error('Error finding transfer matches:', error)
+        toast.error('Failed to find potential matches')
+        setPotentialMatches([])
+      } finally {
+        setLoading(false)
+      }
+    }, 300) // 300ms debounce
 
-    const matches = allTransactions.filter(t => {
-      if (t.id === transaction.id) return false // Don't match with self
-      if (t.bank_name === transaction.bank_name) return false // Different bank only
-      
-      const tDate = new Date(t.date)
-      const tAmount = Math.abs(t.amount)
-      
-      return (
-        tAmount === targetAmount && // Same absolute amount
-        tDate >= thirtyDaysAgo && tDate <= thirtyDaysLater && // Within date range
-        Math.sign(t.amount) !== Math.sign(transaction.amount) // Opposite signs (one positive, one negative)
-      )
-    })
+    return () => clearTimeout(timeoutId)
+  }, [transaction, searchTerm])
 
-    // Sort by date proximity
-    matches.sort((a, b) => {
-      const aDateDiff = Math.abs(new Date(a.date).getTime() - transactionDate.getTime())
-      const bDateDiff = Math.abs(new Date(b.date).getTime() - transactionDate.getTime())
-      return aDateDiff - bDateDiff
-    })
-
-    setPotentialMatches(matches)
-  }, [transaction, allTransactions])
-
-  // Filter matches based on search term
-  const filteredMatches = potentialMatches.filter(t =>
-    searchTerm === '' ||
-    t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.reference?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Since search is now handled server-side, we don't need client-side filtering
+  const filteredMatches = potentialMatches
 
   const handleLinkTransactions = async () => {
     if (!transaction || !selectedMatch) return
@@ -204,7 +186,11 @@ export default function TransferLinkingModal({
               </div>
 
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                {filteredMatches.length === 0 ? (
+                {loading ? (
+                  <p className="text-center py-4 text-muted-foreground">
+                    Searching for potential matches...
+                  </p>
+                ) : filteredMatches.length === 0 ? (
                   <p className="text-center py-4 text-muted-foreground">
                     No potential matches found. Try searching or linking manually.
                   </p>

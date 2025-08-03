@@ -282,7 +282,6 @@ export default function TransactionManager() {
         isOpen={isLinkingModalOpen}
         onClose={() => setIsLinkingModalOpen(false)}
         transaction={selectedTransaction}
-        allTransactions={transactions}
         onLinkingComplete={handleLinkingComplete}
       />
     </div>
