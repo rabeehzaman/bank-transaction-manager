@@ -465,7 +465,12 @@ export const transactionService = {
     }
 
     try {
-      const transferGroupId = crypto.randomUUID()
+      // Generate UUID using a more compatible method
+      const transferGroupId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
       
       const { error } = await supabase
         .from('linked_transfers')
