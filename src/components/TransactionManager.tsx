@@ -34,7 +34,7 @@ export default function TransactionManager() {
   const [isLinkingModalOpen, setIsLinkingModalOpen] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [nextCursor, setNextCursor] = useState<string | undefined>()
-  const nextCursorRef = useRef<string | undefined>()
+  const nextCursorRef = useRef<string | undefined>(undefined)
 
   // Memoized filters object to prevent unnecessary API calls
   const filters = useMemo(() => ({
