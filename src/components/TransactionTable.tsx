@@ -349,7 +349,7 @@ export default function TransactionTable({
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedRows.size === transactions.length && transactions.length > 0}
+                      checked={transactions.length > 0 && selectedRows.size === transactions.length}
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
@@ -383,7 +383,7 @@ export default function TransactionTable({
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedRows.size === transactions.length && transactions.length > 0}
+                    checked={transactions.length > 0 && selectedRows.size === transactions.length}
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>

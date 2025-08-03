@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,6 +34,7 @@ export default function TransactionManager() {
   const [isLinkingModalOpen, setIsLinkingModalOpen] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [nextCursor, setNextCursor] = useState<string | undefined>()
+  const nextCursorRef = useRef<string | undefined>()
 
   // Memoized filters object to prevent unnecessary API calls
   const filters = useMemo(() => ({
@@ -43,6 +44,11 @@ export default function TransactionManager() {
     searchTerm: searchTerm.trim() || undefined
   }), [selectedBank, selectedDepartment, linkingStatus, searchTerm])
 
+  // Update ref when nextCursor changes
+  useEffect(() => {
+    nextCursorRef.current = nextCursor
+  }, [nextCursor])
+
   // Load initial transactions with optimized pagination
   const loadTransactions = useCallback(async (resetData = true) => {
     if (resetData) {
@@ -50,6 +56,7 @@ export default function TransactionManager() {
       setTransactions([])
       setNextCursor(undefined)
       setHasMore(true)
+      nextCursorRef.current = undefined
     } else {
       setLoadingMore(true)
     }
@@ -57,7 +64,7 @@ export default function TransactionManager() {
     try {
       const result: PaginatedTransactions = await transactionService.getTransactionsPaginated(
         100, // Load 100 transactions at a time
-        resetData ? undefined : nextCursor,
+        resetData ? undefined : nextCursorRef.current,
         filters
       )
 
@@ -79,7 +86,7 @@ export default function TransactionManager() {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [filters, nextCursor])
+  }, [filters]) // Remove nextCursor from dependencies to prevent infinite loop
 
   // Load more transactions for infinite scroll
   const loadMoreTransactions = useCallback(() => {
