@@ -94,8 +94,8 @@ export const transactionService = {
 
     try {
       const [ahliResult, rajhiResult, linksResult, tagsResult] = await Promise.all([
-        supabase.from('ahli_ledger').select('*').order('Date', { ascending: false }),
-        supabase.from('transaction_ledger').select('*').order('Date', { ascending: false }),
+        supabase.from('ahli_transactions').select('*').order('transaction_date', { ascending: false }),
+        supabase.from('bank_transactions').select('*').order('transaction_date', { ascending: false }),
         supabase.from('linked_transfers').select('*'),
         supabase.from('transaction_tags').select('*')
       ])
@@ -124,23 +124,23 @@ export const transactionService = {
       // Transform and combine transactions
       const combinedTransactions: EnhancedUnifiedTransaction[] = [
         // Process Ahli transactions
-        ...(ahliResult.data || []).map((t: AhliLedgerRow) => {
-          const transactionId = `ahli_${t.account_number}_${t.sequence_number}_${t.Date}`
-          const amount = (t['Cash In'] || 0) - (t['Cash Out'] || 0)
+        ...(ahliResult.data || []).map((t: Record<string, unknown>) => {
+          const transactionId = `ahli_${t.account_number}_${t.sequence_number}_${t.transaction_date}`
+          const amount = ((t.credit as number) || 0) - ((t.debit as number) || 0)
           const tagData = tagsByTransaction.get(transactionId)
           const categoryTag = tagData?.tags?.find((tag: string) => tag.startsWith('category:'))
           const category = categoryTag ? categoryTag.replace('category:', '') : undefined
           
           return {
             id: transactionId,
-            date: t.Date,
-            description: t['Transaction Details'],
+            date: t.transaction_date as string,
+            description: (t.transaction_description as string) || '',
             amount: amount,
             bank_name: 'Ahli' as const,
-            reference: t.Reference,
-            balance: t['Bank Balance'],
-            account_number: t.account_number,
-            sequence_number: t.sequence_number,
+            reference: t.reference_number as string,
+            balance: t.balance as number,
+            account_number: t.account_number as string,
+            sequence_number: t.sequence_number as number,
             transfer_group_id: linksByTransaction.get(transactionId)?.id,
             source_department: tagData?.source_department,
             category: category,
@@ -149,22 +149,22 @@ export const transactionService = {
           }
         }),
         // Process Rajhi transactions
-        ...(rajhiResult.data || []).map((t: TransactionLedgerRow) => {
-          const transactionId = `rajhi_${t.account_number}_${t.sequence_number}_${t.Date}`
-          const amount = (t['Cash In'] || 0) - (t['Cash Out'] || 0)
+        ...(rajhiResult.data || []).map((t: Record<string, unknown>) => {
+          const transactionId = `rajhi_${t.account_number}_${t.sequence_number}_${t.transaction_date}`
+          const amount = ((t.credit as number) || 0) - ((t.debit as number) || 0)
           const tagData = tagsByTransaction.get(transactionId)
           const categoryTag = tagData?.tags?.find((tag: string) => tag.startsWith('category:'))
           const category = categoryTag ? categoryTag.replace('category:', '') : undefined
           
           return {
             id: transactionId,
-            date: t.Date,
-            description: t['Transaction Details'],
+            date: t.transaction_date as string,
+            description: (t.description as string) || '',
             amount: amount,
             bank_name: 'Rajhi' as const,
-            balance: t['Bank Balance'],
-            account_number: t.account_number,
-            sequence_number: t.sequence_number,
+            balance: t.balance as number,
+            account_number: t.account_number as string,
+            sequence_number: t.sequence_number as number,
             transfer_group_id: linksByTransaction.get(transactionId)?.id,
             source_department: tagData?.source_department,
             category: category,
