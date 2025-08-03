@@ -71,9 +71,21 @@ export interface EnhancedUnifiedTransaction extends UnifiedTransaction {
   tags?: TransactionTag
 }
 
+// Pagination interface
+export interface PaginationInfo {
+  hasMore: boolean
+  nextCursor?: string
+  total?: number
+}
+
+export interface PaginatedTransactions {
+  data: EnhancedUnifiedTransaction[]
+  pagination: PaginationInfo
+}
+
 // Utility functions for data operations
 export const transactionService = {
-  // Fetch all transactions with their links and tags
+  // Fetch all transactions with their links and tags (optimized with pagination)
   async getAllTransactionsWithMetadata(): Promise<EnhancedUnifiedTransaction[]> {
     if (!supabase) {
       console.warn('Supabase client not initialized')
@@ -168,6 +180,177 @@ export const transactionService = {
       return combinedTransactions
     } catch (error) {
       console.error('Error fetching transactions with metadata:', error)
+      throw error
+    }
+  },
+
+  // New cursor-based pagination method for better performance
+  async getTransactionsPaginated(
+    limit = 50,
+    cursor?: string,
+    filters?: {
+      bank?: string
+      department?: string
+      linkingStatus?: string
+      searchTerm?: string
+    }
+  ): Promise<PaginatedTransactions> {
+    if (!supabase) {
+      console.warn('Supabase client not initialized')
+      return { data: [], pagination: { hasMore: false } }
+    }
+
+    try {
+      // Build queries with cursor-based pagination
+      let ahliQuery = supabase
+        .from('ahli_transactions')
+        .select('*')
+        .order('transaction_date', { ascending: false })
+        .order('sequence_number', { ascending: false })
+        .limit(Math.ceil(limit / 2))
+
+      let rajhiQuery = supabase
+        .from('bank_transactions')
+        .select('*')
+        .order('transaction_date', { ascending: false })
+        .order('sequence_number', { ascending: false })
+        .limit(Math.ceil(limit / 2))
+
+      // Apply cursor if provided
+      if (cursor) {
+        const cursorDate = cursor
+        ahliQuery = ahliQuery.lt('transaction_date', cursorDate)
+        rajhiQuery = rajhiQuery.lt('transaction_date', cursorDate)
+      }
+
+      // Apply filters
+      if (filters?.searchTerm) {
+        const searchTerm = `%${filters.searchTerm}%`
+        ahliQuery = ahliQuery.or(`transaction_description.ilike.${searchTerm},reference_number.ilike.${searchTerm}`)
+        rajhiQuery = rajhiQuery.or(`description.ilike.${searchTerm},reference_number.ilike.${searchTerm}`)
+      }
+
+      const [ahliResult, rajhiResult, linksResult, tagsResult] = await Promise.all([
+        ahliQuery,
+        rajhiQuery,
+        supabase.from('linked_transfers').select('*'),
+        supabase.from('transaction_tags').select('*')
+      ])
+
+      if (ahliResult.error) throw ahliResult.error
+      if (rajhiResult.error) throw rajhiResult.error
+      if (linksResult.error) throw linksResult.error
+      if (tagsResult.error) throw tagsResult.error
+
+      const links = linksResult.data || []
+      const tags = tagsResult.data || []
+
+      // Create lookup maps
+      const linksByTransaction = new Map<string, LinkedTransfer>()
+      const tagsByTransaction = new Map<string, TransactionTag>()
+
+      links.forEach(link => {
+        linksByTransaction.set(link.transaction_id_1, link)
+        linksByTransaction.set(link.transaction_id_2, link)
+      })
+
+      tags.forEach(tag => {
+        tagsByTransaction.set(tag.transaction_id, tag)
+      })
+
+      // Transform transactions
+      const combinedTransactions: EnhancedUnifiedTransaction[] = [
+        // Process Ahli transactions
+        ...(ahliResult.data || []).map((t: Record<string, unknown>) => {
+          const transactionId = `ahli_${t.account_number}_${t.sequence_number}_${t.transaction_date}`
+          const amount = ((t.credit as number) || 0) - ((t.debit as number) || 0)
+          const tagData = tagsByTransaction.get(transactionId)
+          const categoryTag = tagData?.tags?.find((tag: string) => tag.startsWith('category:'))
+          const category = categoryTag ? categoryTag.replace('category:', '') : undefined
+          
+          return {
+            id: transactionId,
+            date: t.transaction_date as string,
+            description: (t.transaction_description as string) || '',
+            amount: amount,
+            bank_name: 'Ahli' as const,
+            reference: t.reference_number as string,
+            balance: t.balance as number,
+            account_number: t.account_number as string,
+            sequence_number: t.sequence_number as number,
+            transfer_group_id: linksByTransaction.get(transactionId)?.id,
+            source_department: tagData?.source_department,
+            category: category,
+            linked_transfer: linksByTransaction.get(transactionId),
+            tags: tagData
+          }
+        }),
+        // Process Rajhi transactions
+        ...(rajhiResult.data || []).map((t: Record<string, unknown>) => {
+          const transactionId = `rajhi_${t.account_number}_${t.sequence_number}_${t.transaction_date}`
+          const amount = ((t.credit as number) || 0) - ((t.debit as number) || 0)
+          const tagData = tagsByTransaction.get(transactionId)
+          const categoryTag = tagData?.tags?.find((tag: string) => tag.startsWith('category:'))
+          const category = categoryTag ? categoryTag.replace('category:', '') : undefined
+          
+          return {
+            id: transactionId,
+            date: t.transaction_date as string,
+            description: (t.description as string) || '',
+            amount: amount,
+            bank_name: 'Rajhi' as const,
+            balance: t.balance as number,
+            account_number: t.account_number as string,
+            sequence_number: t.sequence_number as number,
+            transfer_group_id: linksByTransaction.get(transactionId)?.id,
+            source_department: tagData?.source_department,
+            category: category,
+            linked_transfer: linksByTransaction.get(transactionId),
+            tags: tagData
+          }
+        })
+      ]
+
+      // Sort by date descending
+      combinedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+      // Apply additional filters
+      let filteredTransactions = combinedTransactions
+
+      if (filters?.bank && filters.bank !== 'all') {
+        filteredTransactions = filteredTransactions.filter(t => t.bank_name === filters.bank)
+      }
+
+      if (filters?.department && filters.department !== 'all') {
+        filteredTransactions = filteredTransactions.filter(t => t.source_department === filters.department)
+      }
+
+      if (filters?.linkingStatus) {
+        if (filters.linkingStatus === 'linked') {
+          filteredTransactions = filteredTransactions.filter(t => t.transfer_group_id)
+        } else if (filters.linkingStatus === 'unlinked') {
+          filteredTransactions = filteredTransactions.filter(t => !t.transfer_group_id)
+        }
+      }
+
+      // Take only the requested limit
+      const paginatedTransactions = filteredTransactions.slice(0, limit)
+      
+      // Determine if there are more records
+      const hasMore = filteredTransactions.length === limit
+      const nextCursor = hasMore && paginatedTransactions.length > 0 
+        ? paginatedTransactions[paginatedTransactions.length - 1].date 
+        : undefined
+
+      return {
+        data: paginatedTransactions,
+        pagination: {
+          hasMore,
+          nextCursor
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching paginated transactions:', error)
       throw error
     }
   },

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import TransactionTable from './TransactionTable'
 import TransferLinkingModal from './TransferLinkingModal'
 import SummaryDashboard from './SummaryDashboard'
-import { transactionService, EnhancedUnifiedTransaction } from '@/lib/supabase'
+import { transactionService, EnhancedUnifiedTransaction, PaginatedTransactions } from '@/lib/supabase'
 import { toast } from 'sonner'
 
 const DEPARTMENTS = [
@@ -24,103 +24,128 @@ const DEPARTMENTS = [
 
 export default function TransactionManager() {
   const [transactions, setTransactions] = useState<EnhancedUnifiedTransaction[]>([])
-  const [filteredTransactions, setFilteredTransactions] = useState<EnhancedUnifiedTransaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedBank, setSelectedBank] = useState<string>('all')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [linkingStatus, setLinkingStatus] = useState<string>('all')
   const [selectedTransaction, setSelectedTransaction] = useState<EnhancedUnifiedTransaction | null>(null)
   const [isLinkingModalOpen, setIsLinkingModalOpen] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [nextCursor, setNextCursor] = useState<string | undefined>()
 
-  // Load transactions with metadata
-  const loadTransactions = async () => {
-    setLoading(true)
+  // Memoized filters object to prevent unnecessary API calls
+  const filters = useMemo(() => ({
+    bank: selectedBank !== 'all' ? selectedBank : undefined,
+    department: selectedDepartment !== 'all' ? selectedDepartment : undefined,
+    linkingStatus: linkingStatus !== 'all' ? linkingStatus : undefined,
+    searchTerm: searchTerm.trim() || undefined
+  }), [selectedBank, selectedDepartment, linkingStatus, searchTerm])
+
+  // Load initial transactions with optimized pagination
+  const loadTransactions = useCallback(async (resetData = true) => {
+    if (resetData) {
+      setLoading(true)
+      setTransactions([])
+      setNextCursor(undefined)
+      setHasMore(true)
+    } else {
+      setLoadingMore(true)
+    }
+
     try {
-      const enhancedTransactions = await transactionService.getAllTransactionsWithMetadata()
-      setTransactions(enhancedTransactions)
-      setFilteredTransactions(enhancedTransactions)
+      const result: PaginatedTransactions = await transactionService.getTransactionsPaginated(
+        100, // Load 100 transactions at a time
+        resetData ? undefined : nextCursor,
+        filters
+      )
+
+      if (resetData) {
+        setTransactions(result.data)
+      } else {
+        setTransactions(prev => [...prev, ...result.data])
+      }
+
+      setHasMore(result.pagination.hasMore)
+      setNextCursor(result.pagination.nextCursor)
     } catch (error) {
       console.error('Error loading transactions:', error)
       toast.error('Failed to load transactions')
-      // Set empty arrays on error to prevent crashes
-      setTransactions([])
-      setFilteredTransactions([])
+      if (resetData) {
+        setTransactions([])
+      }
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
-  }
+  }, [filters, nextCursor])
 
-  // Filter transactions based on search criteria
+  // Load more transactions for infinite scroll
+  const loadMoreTransactions = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      loadTransactions(false)
+    }
+  }, [loadTransactions, loadingMore, hasMore])
+
+  // Debounced search effect to prevent excessive API calls
   useEffect(() => {
-    let filtered = transactions
+    const timeoutId = setTimeout(() => {
+      loadTransactions(true)
+    }, 300) // 300ms debounce
 
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(t => 
-        t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.amount?.toString().includes(searchTerm) ||
-        t.reference?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    // Filter by bank
-    if (selectedBank !== 'all') {
-      filtered = filtered.filter(t => t.bank_name === selectedBank)
-    }
-
-    // Filter by department
-    if (selectedDepartment !== 'all') {
-      filtered = filtered.filter(t => t.source_department === selectedDepartment)
-    }
-
-    // Filter by linking status
-    if (linkingStatus === 'linked') {
-      filtered = filtered.filter(t => t.transfer_group_id)
-    } else if (linkingStatus === 'unlinked') {
-      filtered = filtered.filter(t => !t.transfer_group_id)
-    }
-
-    setFilteredTransactions(filtered)
-  }, [transactions, searchTerm, selectedBank, selectedDepartment, linkingStatus])
+    return () => clearTimeout(timeoutId)
+  }, [filters, loadTransactions])
 
   // Load transactions on component mount
   useEffect(() => {
-    loadTransactions()
-  }, [])
+    loadTransactions(true)
+  }, [loadTransactions])
 
   const handleLinkTransfer = (transaction: EnhancedUnifiedTransaction) => {
     setSelectedTransaction(transaction)
     setIsLinkingModalOpen(true)
   }
 
-  const handleDepartmentUpdate = async (transactionId: string, department: string) => {
+  const handleDepartmentUpdate = useCallback(async (transactionId: string, department: string) => {
     try {
       await transactionService.updateTransactionDepartment(transactionId, department)
       toast.success('Department updated successfully')
-      loadTransactions() // Reload to see changes
+      
+      // Update the transaction in the local state instead of reloading all data
+      setTransactions(prev => prev.map(t => 
+        t.id === transactionId 
+          ? { ...t, source_department: department }
+          : t
+      ))
     } catch (error) {
       console.error('Error updating department:', error)
       toast.error('Failed to update department')
     }
-  }
+  }, [])
 
-  const handleCategoryUpdate = async (transactionId: string, category: string) => {
+  const handleCategoryUpdate = useCallback(async (transactionId: string, category: string) => {
     try {
       await transactionService.updateTransactionCategory(transactionId, category)
       toast.success('Category updated successfully')
-      loadTransactions() // Reload to see changes
+      
+      // Update the transaction in the local state instead of reloading all data
+      setTransactions(prev => prev.map(t => 
+        t.id === transactionId 
+          ? { ...t, category: category }
+          : t
+      ))
     } catch (error) {
       console.error('Error updating category:', error)
       toast.error('Failed to update category')
     }
-  }
+  }, [])
 
-  const handleLinkingComplete = () => {
+  const handleLinkingComplete = useCallback(() => {
     setIsLinkingModalOpen(false)
     setSelectedTransaction(null)
-    loadTransactions() // Reload to see changes
-  }
+    loadTransactions(true) // Reload to see changes
+  }, [loadTransactions])
 
   return (
     <div className="space-y-6">
@@ -193,11 +218,26 @@ export default function TransactionManager() {
 
               <div className="flex items-center justify-between mt-4">
                 <p className="text-sm text-muted-foreground">
-                  Showing {filteredTransactions.length} of {transactions.length} transactions
+                  Showing {transactions.length} transactions
+                  {hasMore && ' (load more for additional results)'}
                 </p>
-                <Button onClick={loadTransactions} disabled={loading}>
-                  {loading ? 'Loading...' : 'Refresh'}
-                </Button>
+                <div className="space-x-2">
+                  <Button 
+                    onClick={() => loadTransactions(true)} 
+                    disabled={loading}
+                    variant="outline"
+                  >
+                    {loading ? 'Loading...' : 'Refresh'}
+                  </Button>
+                  {hasMore && (
+                    <Button 
+                      onClick={loadMoreTransactions}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? 'Loading...' : 'Load More'}
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -209,12 +249,25 @@ export default function TransactionManager() {
             </CardHeader>
             <CardContent>
               <TransactionTable 
-                transactions={filteredTransactions}
+                transactions={transactions}
                 onLinkTransfer={handleLinkTransfer}
                 onDepartmentUpdate={handleDepartmentUpdate}
                 onCategoryUpdate={handleCategoryUpdate}
                 loading={loading}
               />
+              
+              {/* Load More Button at bottom of table */}
+              {hasMore && !loading && (
+                <div className="flex justify-center mt-4">
+                  <Button 
+                    onClick={loadMoreTransactions}
+                    disabled={loadingMore}
+                    variant="outline"
+                  >
+                    {loadingMore ? 'Loading more...' : `Load More Transactions`}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
