@@ -2,11 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  
-  // Skip build-time static generation for pages that need runtime data
-  experimental: {
-    missingSuspenseWithCSRBailout: false,
-  },
 
   // Environment variables that should be available at runtime
   env: {
