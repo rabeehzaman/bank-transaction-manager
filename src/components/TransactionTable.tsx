@@ -85,7 +85,7 @@ export default function TransactionTable({
     if (onDepartmentUpdate) {
       try {
         await onDepartmentUpdate(transactionId, department)
-      } catch (error) {
+      } catch {
         // Revert the local state if the update failed
         setDepartmentUpdates(prev => {
           const newUpdates = { ...prev }
@@ -106,7 +106,7 @@ export default function TransactionTable({
     if (onCategoryUpdate) {
       try {
         await onCategoryUpdate(transactionId, category)
-      } catch (error) {
+      } catch {
         // Revert the local state if the update failed
         setCategoryUpdates(prev => {
           const newUpdates = { ...prev }

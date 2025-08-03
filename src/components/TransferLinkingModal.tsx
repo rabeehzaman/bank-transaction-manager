@@ -15,7 +15,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { EnhancedUnifiedTransaction, transactionService } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
-import { v4 as uuidv4 } from 'uuid'
 import { Search, Link, Unlink } from 'lucide-react'
 
 interface TransferLinkingModalProps {

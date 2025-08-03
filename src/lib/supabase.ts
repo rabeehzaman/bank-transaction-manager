@@ -226,13 +226,13 @@ export const transactionService = {
         .single()
 
       const existingTags = existing?.tags || []
-      let updatedTags = existingTags.filter((tag: string) => !tag.startsWith('category:'))
+      const updatedTags = existingTags.filter((tag: string) => !tag.startsWith('category:'))
       
       if (category) {
         updatedTags.push(`category:${category}`)
       }
 
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         transaction_id: transactionId,
         tags: updatedTags,
         updated_at: new Date().toISOString()
