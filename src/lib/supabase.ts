@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Only create client if both URL and key are available
+export const supabase = supabaseUrl && supabaseAnonKey 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null
 
 // Type definitions for our database tables (actual view columns)
 export interface TransactionLedgerRow {
@@ -72,6 +75,11 @@ export interface EnhancedUnifiedTransaction extends UnifiedTransaction {
 export const transactionService = {
   // Fetch all transactions with their links and tags
   async getAllTransactionsWithMetadata(): Promise<EnhancedUnifiedTransaction[]> {
+    if (!supabase) {
+      console.warn('Supabase client not initialized')
+      return []
+    }
+
     try {
       const [ahliResult, rajhiResult, linksResult, tagsResult] = await Promise.all([
         supabase.from('ahli_ledger').select('*').order('Date', { ascending: false }),
@@ -166,6 +174,10 @@ export const transactionService = {
 
   // Update or create transaction department tag
   async updateTransactionDepartment(transactionId: string, department: string): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
+    }
+
     try {
       const { error } = await supabase
         .from('transaction_tags')
@@ -186,6 +198,10 @@ export const transactionService = {
 
   // Update or create transaction category
   async updateTransactionCategory(transactionId: string, category: string): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
+    }
+
     try {
       // First get existing tags to preserve them
       const { data: existing } = await supabase
@@ -217,6 +233,10 @@ export const transactionService = {
 
   // Update both department and category
   async updateTransactionMetadata(transactionId: string, department?: string, category?: string): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
+    }
+
     try {
       // Get existing data
       const { data: existing } = await supabase
@@ -257,6 +277,10 @@ export const transactionService = {
 
   // Create a transfer link
   async linkTransfers(transaction1Id: string, transaction2Id: string, department?: string): Promise<string> {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
+    }
+
     try {
       const transferGroupId = crypto.randomUUID()
       
@@ -280,6 +304,10 @@ export const transactionService = {
 
   // Remove a transfer link
   async unlinkTransfer(transferGroupId: string): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
+    }
+
     try {
       const { error } = await supabase
         .from('linked_transfers')

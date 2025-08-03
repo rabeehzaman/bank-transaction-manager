@@ -43,6 +43,9 @@ export default function TransactionManager() {
     } catch (error) {
       console.error('Error loading transactions:', error)
       toast.error('Failed to load transactions')
+      // Set empty arrays on error to prevent crashes
+      setTransactions([])
+      setFilteredTransactions([])
     } finally {
       setLoading(false)
     }
