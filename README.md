@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bank Transaction Manager
 
-## Getting Started
+A unified web interface for managing bank transactions from Ahli and Rajhi banks with transfer linking capabilities.
 
-First, run the development server:
+## Features
+
+- **Unified Transaction View**: Combines transactions from `ahli_ledger` and `transaction_ledger` tables
+- **Advanced Filtering**: Filter by date, bank, department, and linking status
+- **Transfer Linking**: Manually link interbank transfers with smart matching suggestions
+- **Department Tagging**: Assign and manage source departments for transactions
+- **Summary Dashboard**: View department-wise summaries and transfer statistics
+- **Real-time Updates**: Automatic data synchronization with Supabase
+
+## Setup Instructions
+
+### 1. Prerequisites
+
+- Node.js 18+ installed
+- A Supabase project with `ahli_ledger` and `transaction_ledger` tables
+- Supabase project credentials (URL and anon key)
+
+### 2. Installation
 
 ```bash
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Supabase Configuration
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Get your Supabase credentials**:
+   - Go to [Supabase Dashboard](https://supabase.com/dashboard)
+   - Navigate to your project: `gnwfsddjfhtrczoozpfd`
+   - Go to Settings → API
+   - Copy the **anon public** key (not service role)
+   - Update `.env.local` with the correct anon key
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. **Create required tables**:
+   - Go to Supabase Dashboard → SQL Editor
+   - Run the SQL scripts in the `/sql` directory or visit `/setup` page in the app
 
-## Learn More
+## Usage
 
-To learn more about Next.js, take a look at the following resources:
+Visit `http://localhost:3000` to access the application.
+- **Setup Page**: Visit `/setup` for detailed configuration instructions
+- **Transactions**: Main interface for managing transactions
+- **Dashboard**: Summary view with analytics
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database Schema
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Required Source Tables (must exist in your Supabase project):
+- `ahli_ledger` - Ahli Bank transactions
+- `transaction_ledger` - Rajhi Bank transactions
 
-## Deploy on Vercel
+### Application Tables (created automatically):
+- `linked_transfers` - Stores transfer group associations
+- `transaction_tags` - Stores department assignments and metadata
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Quick Start
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Update your `.env.local` with the correct Supabase anon key
+2. Run the SQL scripts from the `/sql` directory in your Supabase dashboard
+3. Start the app with `npm run dev`
+4. Visit the setup page for detailed instructions
+
+## Tech Stack
+
+- **Next.js 15** with TypeScript
+- **Supabase** for database
+- **ShadCN/UI** + **Tailwind CSS** for UI
+- **PostgreSQL** database
+
+## License
+
+Internal use only. Ensure compliance with your organization's data policies.
