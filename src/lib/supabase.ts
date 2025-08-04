@@ -192,7 +192,7 @@ export const transactionService = {
     }
   },
 
-  // Clean cursor-based pagination method with simple client-side filtering
+  // Server-side pagination using enhanced_transactions view for true filtering
   async getTransactionsPaginated(
     limit = 50,
     cursor?: string,
@@ -209,194 +209,95 @@ export const transactionService = {
     }
 
     try {
-      // Build transaction queries - fetch more than needed for client-side filtering
-      const fetchLimit = Math.max(limit * 2, 200)
-
-      let ahliQuery = supabase
-        .from('ahli_transactions')
+      // Use enhanced_transactions view which already includes all necessary joins
+      let query = supabase
+        .from('enhanced_transactions')
         .select('*')
-        .order('transaction_date', { ascending: false })
+        .order('date', { ascending: false })
         .order('sequence_number', { ascending: false })
 
-      let rajhiQuery = supabase
-        .from('bank_transactions')
-        .select('*')
-        .order('transaction_date', { ascending: false })
-        .order('sequence_number', { ascending: false })
-
-      // Apply cursor if provided
+      // Apply cursor-based pagination
       if (cursor) {
-        const cursorDate = cursor
-        ahliQuery = ahliQuery.lt('transaction_date', cursorDate)
-        rajhiQuery = rajhiQuery.lt('transaction_date', cursorDate)
+        query = query.lt('date', cursor)
       }
 
-      // Apply server-side filters for better performance
-      if (filters?.searchTerm) {
-        const searchTerm = `%${filters.searchTerm}%`
-        ahliQuery = ahliQuery.or(`transaction_description.ilike.${searchTerm},reference_number.ilike.${searchTerm}`)
-        rajhiQuery = rajhiQuery.or(`description.ilike.${searchTerm},reference_number.ilike.${searchTerm}`)
+      // Apply server-side filters
+      if (filters?.bank && filters.bank !== 'all') {
+        query = query.eq('bank_name', filters.bank)
       }
 
-      // Execute queries based on bank filter
-      let ahliResult, rajhiResult
-      if (filters?.bank === 'Ahli') {
-        ahliResult = await ahliQuery.limit(fetchLimit)
-        rajhiResult = { data: [], error: null }
-      } else if (filters?.bank === 'Rajhi') {
-        rajhiResult = await rajhiQuery.limit(fetchLimit)
-        ahliResult = { data: [], error: null }
-      } else {
-        // Default: query both banks with half limit each
-        const [ahliRes, rajhiRes] = await Promise.all([
-          ahliQuery.limit(Math.ceil(fetchLimit / 2)),
-          rajhiQuery.limit(Math.ceil(fetchLimit / 2))
-        ])
-        ahliResult = ahliRes
-        rajhiResult = rajhiRes
-      }
-
-      if (ahliResult.error) throw ahliResult.error
-      if (rajhiResult.error) throw rajhiResult.error
-
-      // Get all transactions
-      const allTransactions = [...(ahliResult.data || []), ...(rajhiResult.data || [])]
-      const transactionIds = allTransactions.map(t => {
-        if ('transaction_description' in t) {
-          // Ahli transaction
-          return `ahli_${t.account_number}_${t.sequence_number}_${t.transaction_date}`
-        } else {
-          // Rajhi transaction
-          return `rajhi_${t.account_number}_${t.sequence_number}_${t.transaction_date}`
-        }
-      })
-
-      // Fetch transaction tags and links in parallel
-      const [linksResult, tagsResult] = await Promise.all([
-        transactionIds.length > 0 
-          ? supabase.from('linked_transfers').select('*').or(
-              `transaction_id_1.in.(${transactionIds.join(',')}),transaction_id_2.in.(${transactionIds.join(',')})`
-            )
-          : Promise.resolve({ data: [], error: null }),
-        transactionIds.length > 0 
-          ? supabase.from('transaction_tags').select('*').in('transaction_id', transactionIds)
-          : Promise.resolve({ data: [], error: null })
-      ])
-
-      if (linksResult.error) throw linksResult.error
-      if (tagsResult.error) throw tagsResult.error
-
-      const links = linksResult.data || []
-      const tags = tagsResult.data || []
-
-      // Create lookup maps
-      const linksByTransaction = new Map<string, LinkedTransfer>()
-      const tagsByTransaction = new Map<string, TransactionTag>()
-
-      links.forEach(link => {
-        linksByTransaction.set(link.transaction_id_1, link)
-        linksByTransaction.set(link.transaction_id_2, link)
-      })
-
-      tags.forEach(tag => {
-        tagsByTransaction.set(tag.transaction_id, tag)
-      })
-
-      // Transform transactions and apply department filtering
-      let combinedTransactions: EnhancedUnifiedTransaction[] = [
-        // Process Ahli transactions
-        ...(ahliResult.data || []).map((t: Record<string, unknown>) => {
-          const transactionId = `ahli_${t.account_number}_${t.sequence_number}_${t.transaction_date}`
-          const amount = ((t.credit as number) || 0) - ((t.debit as number) || 0)
-          const tagData = tagsByTransaction.get(transactionId)
-          const categoryTag = tagData?.tags?.find((tag: string) => tag.startsWith('category:'))
-          const category = categoryTag ? categoryTag.replace('category:', '') : undefined
-          
-          // Concatenate all description fields for complete information
-          const descriptionParts = [
-            t.transaction_description as string,
-            t.description_detail as string,
-            t.description_extra as string
-          ].filter(part => part && part.trim().length > 0)
-          const fullDescription = descriptionParts.join(' - ')
-          
-          return {
-            id: transactionId,
-            date: t.transaction_date as string,
-            description: fullDescription || '',
-            amount: amount,
-            bank_name: 'Ahli' as const,
-            reference: t.reference_number as string,
-            balance: t.balance as number,
-            account_number: t.account_number as string,
-            sequence_number: t.sequence_number as number,
-            transfer_group_id: linksByTransaction.get(transactionId)?.id,
-            source_department: tagData?.source_department,
-            category: category,
-            linked_transfer: linksByTransaction.get(transactionId),
-            tags: tagData
-          }
-        }),
-        // Process Rajhi transactions
-        ...(rajhiResult.data || []).map((t: Record<string, unknown>) => {
-          const transactionId = `rajhi_${t.account_number}_${t.sequence_number}_${t.transaction_date}`
-          const amount = ((t.credit as number) || 0) - ((t.debit as number) || 0)
-          const tagData = tagsByTransaction.get(transactionId)
-          const categoryTag = tagData?.tags?.find((tag: string) => tag.startsWith('category:'))
-          const category = categoryTag ? categoryTag.replace('category:', '') : undefined
-          
-          return {
-            id: transactionId,
-            date: t.transaction_date as string,
-            description: (t.description as string) || '',
-            amount: amount,
-            bank_name: 'Rajhi' as const,
-            balance: t.balance as number,
-            account_number: t.account_number as string,
-            sequence_number: t.sequence_number as number,
-            transfer_group_id: linksByTransaction.get(transactionId)?.id,
-            source_department: tagData?.source_department,
-            category: category,
-            linked_transfer: linksByTransaction.get(transactionId),
-            tags: tagData
-          }
-        })
-      ]
-
-      // Apply client-side department filtering - simple and clean
       if (filters?.department && filters.department !== 'all') {
         if (filters.department === 'Unassigned') {
-          combinedTransactions = combinedTransactions.filter(t => !t.source_department)
+          query = query.is('source_department', null)
         } else {
-          combinedTransactions = combinedTransactions.filter(t => t.source_department === filters.department)
+          query = query.eq('source_department', filters.department)
         }
       }
 
-      // Sort by date descending
-      combinedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-      // Apply remaining client-side filters
-      let filteredTransactions = combinedTransactions
-
-      if (filters?.linkingStatus) {
+      if (filters?.linkingStatus && filters.linkingStatus !== 'all') {
         if (filters.linkingStatus === 'linked') {
-          filteredTransactions = filteredTransactions.filter(t => t.transfer_group_id)
+          query = query.not('transfer_group_id', 'is', null)
         } else if (filters.linkingStatus === 'unlinked') {
-          filteredTransactions = filteredTransactions.filter(t => !t.transfer_group_id)
+          query = query.is('transfer_group_id', null)
         }
       }
 
-      // Take only the requested limit
-      const paginatedTransactions = filteredTransactions.slice(0, limit)
-      
-      // Determine if there are more records
-      const hasMore = paginatedTransactions.length === limit
-      const nextCursor = hasMore && paginatedTransactions.length > 0 
-        ? paginatedTransactions[paginatedTransactions.length - 1].date 
+      if (filters?.searchTerm) {
+        const searchTerm = `%${filters.searchTerm}%`
+        query = query.or(`description.ilike.${searchTerm},reference.ilike.${searchTerm}`)
+      }
+
+      // Limit the results
+      query = query.limit(limit + 1) // Get one extra to check if there are more results
+
+      const result = await query
+
+      if (result.error) throw result.error
+
+      const data = result.data || []
+      const hasMore = data.length > limit
+      const transactions = hasMore ? data.slice(0, limit) : data
+
+      // Transform to expected format
+      const transformedTransactions: EnhancedUnifiedTransaction[] = transactions.map((t: Record<string, unknown>) => ({
+        id: t.id as string,
+        date: t.date as string,
+        description: (t.description as string) || '',
+        amount: t.amount as number,
+        bank_name: t.bank_name as 'Rajhi' | 'Ahli',
+        reference: t.reference as string,
+        balance: t.balance as number,
+        account_number: t.account_number as string,
+        sequence_number: t.sequence_number as number,
+        transfer_group_id: t.transfer_group_id as string,
+        source_department: t.source_department as string,
+        category: t.category as string,
+        linked_transfer: t.transfer_group_id ? {
+          id: t.transfer_group_id as string,
+          transaction_id_1: t.id as string,
+          transaction_id_2: '',
+          source_department: t.source_department as string,
+          created_at: '',
+          created_by: '',
+          updated_at: ''
+        } : undefined,
+        tags: t.source_department ? {
+          id: '',
+          transaction_id: t.id as string,
+          source_department: t.source_department as string,
+          tags: t.category ? [`category:${t.category}`] : [],
+          notes: '',
+          created_at: '',
+          updated_at: ''
+        } : undefined
+      }))
+
+      const nextCursor = hasMore && transformedTransactions.length > 0 
+        ? transformedTransactions[transformedTransactions.length - 1].date 
         : undefined
 
       return {
-        data: paginatedTransactions,
+        data: transformedTransactions,
         pagination: {
           hasMore,
           nextCursor
