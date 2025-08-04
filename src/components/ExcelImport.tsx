@@ -79,7 +79,7 @@ export default function ExcelImport() {
     try {
       setLoadingLogs(true)
       
-      let allLogs: any[] = []
+      let allLogs: ProcessingLog[] = []
 
       // If a specific bank is selected, only load logs from that bank
       if (selectedBank && selectedBank !== '') {
@@ -392,7 +392,7 @@ export default function ExcelImport() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {(log as any).bank || 'Unknown'}
+                        {(log as { bank?: string }).bank || 'Unknown'}
                       </Badge>
                     </TableCell>
                     <TableCell>

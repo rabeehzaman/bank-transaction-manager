@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, memo, useCallback, useEffect, useMemo } from 'react'
+import { useState, memo, useCallback, useMemo } from 'react'
 import { FixedSizeList as List } from 'react-window'
 import {
   Table,
@@ -26,7 +26,6 @@ interface TransactionTableProps {
   onCategoryUpdate?: (transactionId: string, category: string) => void
   loading: boolean
   departments: Department[]
-  onDepartmentsRefresh?: () => void
   selectedDepartment: string
 }
 
@@ -203,7 +202,6 @@ export default function TransactionTable({
   onDepartmentUpdate,
   loading,
   departments,
-  onDepartmentsRefresh,
   selectedDepartment
 }: TransactionTableProps) {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())

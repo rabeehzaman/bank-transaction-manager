@@ -277,7 +277,6 @@ export default function TransactionManager() {
                 onCategoryUpdate={handleCategoryUpdate}
                 loading={loading}
                 departments={departments}
-                onDepartmentsRefresh={loadDepartments}
                 selectedDepartment={selectedDepartment}
               />
               
