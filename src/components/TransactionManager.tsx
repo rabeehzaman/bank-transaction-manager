@@ -216,6 +216,7 @@ export default function TransactionManager() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Departments</SelectItem>
+                      <SelectItem value="Unassigned">Unassigned</SelectItem>
                       {departments.map(dept => (
                         <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
                       ))}
