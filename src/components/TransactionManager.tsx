@@ -10,20 +10,12 @@ import TransactionTable from './TransactionTable'
 import TransferLinkingModal from './TransferLinkingModal'
 import SummaryDashboard from './SummaryDashboard'
 import { transactionService, EnhancedUnifiedTransaction, PaginatedTransactions } from '@/lib/supabase'
+import { departmentService, Department } from '@/lib/supabase-admin'
 import { toast } from 'sonner'
-
-const DEPARTMENTS = [
-  'Frozen',
-  'Beverages', 
-  'Dairy',
-  'Meat',
-  'Produce',
-  'Bakery',
-  'General'
-]
 
 export default function TransactionManager() {
   const [transactions, setTransactions] = useState<EnhancedUnifiedTransaction[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -104,10 +96,33 @@ export default function TransactionManager() {
     return () => clearTimeout(timeoutId)
   }, [filters, loadTransactions])
 
-  // Load transactions on component mount
+  // Load departments
+  const loadDepartments = useCallback(async () => {
+    try {
+      const data = await departmentService.getAllDepartments()
+      setDepartments(data.filter(d => d.is_active))
+    } catch (error) {
+      console.error('Failed to load departments:', error)
+    }
+  }, [])
+
+  // Load initial data on component mount
   useEffect(() => {
     loadTransactions(true)
-  }, [loadTransactions])
+    loadDepartments()
+  }, [loadTransactions, loadDepartments])
+
+  // Refresh departments when page becomes visible (e.g., returning from admin panel)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadDepartments()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [loadDepartments])
 
   const handleLinkTransfer = (transaction: EnhancedUnifiedTransaction) => {
     setSelectedTransaction(transaction)
@@ -201,8 +216,8 @@ export default function TransactionManager() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Departments</SelectItem>
-                      {DEPARTMENTS.map(dept => (
-                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                      {departments.map(dept => (
+                        <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -261,6 +276,9 @@ export default function TransactionManager() {
                 onDepartmentUpdate={handleDepartmentUpdate}
                 onCategoryUpdate={handleCategoryUpdate}
                 loading={loading}
+                departments={departments}
+                onDepartmentsRefresh={loadDepartments}
+                selectedDepartment={selectedDepartment}
               />
               
               {/* Load More Button at bottom of table */}

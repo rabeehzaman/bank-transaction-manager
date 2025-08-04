@@ -131,10 +131,18 @@ export const transactionService = {
           const categoryTag = tagData?.tags?.find((tag: string) => tag.startsWith('category:'))
           const category = categoryTag ? categoryTag.replace('category:', '') : undefined
           
+          // Concatenate all description fields for complete information
+          const descriptionParts = [
+            t.transaction_description as string,
+            t.description_detail as string,
+            t.description_extra as string
+          ].filter(part => part && part.trim().length > 0)
+          const fullDescription = descriptionParts.join(' - ')
+          
           return {
             id: transactionId,
             date: t.transaction_date as string,
-            description: (t.transaction_description as string) || '',
+            description: fullDescription || '',
             amount: amount,
             bank_name: 'Ahli' as const,
             reference: t.reference_number as string,
@@ -302,10 +310,18 @@ export const transactionService = {
           const categoryTag = tagData?.tags?.find((tag: string) => tag.startsWith('category:'))
           const category = categoryTag ? categoryTag.replace('category:', '') : undefined
           
+          // Concatenate all description fields for complete information
+          const descriptionParts = [
+            t.transaction_description as string,
+            t.description_detail as string,
+            t.description_extra as string
+          ].filter(part => part && part.trim().length > 0)
+          const fullDescription = descriptionParts.join(' - ')
+          
           return {
             id: transactionId,
             date: t.transaction_date as string,
-            description: (t.transaction_description as string) || '',
+            description: fullDescription || '',
             amount: amount,
             bank_name: 'Ahli' as const,
             reference: t.reference_number as string,
@@ -501,12 +517,24 @@ export const transactionService = {
         const categoryTag = tagData?.tags?.find((tag: string) => tag.startsWith('category:'))
         const category = categoryTag ? categoryTag.replace('category:', '') : undefined
         
+        // Build description based on bank type
+        let description: string
+        if (searchBank === 'ahli') {
+          // Concatenate all description fields for Ahli transactions
+          const descriptionParts = [
+            t.transaction_description as string,
+            t.description_detail as string,
+            t.description_extra as string
+          ].filter(part => part && part.trim().length > 0)
+          description = descriptionParts.join(' - ') || ''
+        } else {
+          description = (t.description as string) || ''
+        }
+        
         return {
           id: transactionId,
           date: t.transaction_date as string,
-          description: searchBank === 'ahli' 
-            ? (t.transaction_description as string) || ''
-            : (t.description as string) || '',
+          description: description,
           amount: amount,
           bank_name: searchBank === 'ahli' ? 'Ahli' as const : 'Rajhi' as const,
           reference: t.reference_number as string,

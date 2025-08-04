@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, memo, useCallback } from 'react'
+import { useState, memo, useCallback, useEffect, useMemo } from 'react'
 import { FixedSizeList as List } from 'react-window'
 import {
   Table,
@@ -15,6 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EnhancedUnifiedTransaction } from '@/lib/supabase'
+import { Department } from '@/lib/supabase-admin'
 import { format } from 'date-fns'
 import { Link, AlertTriangle, CheckCircle } from 'lucide-react'
 
@@ -24,28 +25,12 @@ interface TransactionTableProps {
   onDepartmentUpdate?: (transactionId: string, department: string) => void
   onCategoryUpdate?: (transactionId: string, category: string) => void
   loading: boolean
+  departments: Department[]
+  onDepartmentsRefresh?: () => void
+  selectedDepartment: string
 }
 
-const DEPARTMENTS = [
-  'Frozen',
-  'Beverages', 
-  'Dairy',
-  'Meat',
-  'Produce',
-  'Bakery',
-  'General'
-]
-
-const CATEGORIES = [
-  'Income',
-  'Expense',
-  'Transfer',
-  'Refund',
-  'Fee',
-  'Investment',
-  'Loan',
-  'Other'
-]
+// DEPARTMENTS moved to dynamic loading from database
 
 // Memoized transaction row component for better performance
 const TransactionRow = memo(function TransactionRow({ 
@@ -53,19 +38,21 @@ const TransactionRow = memo(function TransactionRow({
   isSelected, 
   onRowSelect, 
   onDepartmentChange, 
-  onCategoryChange, 
   onLinkTransfer,
   departmentValue,
-  categoryValue
+  departments,
+  runningTotal,
+  showRunningTotal
 }: {
   transaction: EnhancedUnifiedTransaction
   isSelected: boolean
   onRowSelect: (transactionId: string, checked: boolean) => void
   onDepartmentChange: (transactionId: string, department: string) => void
-  onCategoryChange: (transactionId: string, category: string) => void
   onLinkTransfer: (transaction: EnhancedUnifiedTransaction) => void
   departmentValue: string
-  categoryValue: string
+  departments: Department[]
+  runningTotal?: number
+  showRunningTotal: boolean
 }) {
   const formatAmount = (amount: number) => {
     const isNegative = amount < 0
@@ -73,6 +60,16 @@ const TransactionRow = memo(function TransactionRow({
     return (
       <span className={isNegative ? 'text-red-600' : 'text-green-600'}>
         {isNegative ? '-' : '+'}${absAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+      </span>
+    )
+  }
+
+  const formatRunningTotal = (total: number) => {
+    const isNegative = total < 0
+    const absTotal = Math.abs(total)
+    return (
+      <span className={`font-mono font-medium ${isNegative ? 'text-red-600' : 'text-green-600'}`}>
+        {isNegative ? '-' : ''}${absTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
       </span>
     )
   }
@@ -108,11 +105,11 @@ const TransactionRow = memo(function TransactionRow({
       </TableCell>
       
       <TableCell className="max-w-xs">
-        <div className="truncate" title={transaction.description}>
+        <div className="whitespace-normal break-words" title={transaction.description}>
           {transaction.description}
         </div>
         {transaction.reference && (
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground whitespace-normal break-words">
             Ref: {transaction.reference}
           </div>
         )}
@@ -129,6 +126,12 @@ const TransactionRow = memo(function TransactionRow({
       <TableCell className="font-mono">
         {formatAmount(transaction.amount)}
       </TableCell>
+
+      {showRunningTotal && (
+        <TableCell className="font-mono text-right">
+          {runningTotal !== undefined ? formatRunningTotal(runningTotal) : '-'}
+        </TableCell>
+      )}
       
       <TableCell>
         <Select 
@@ -139,13 +142,14 @@ const TransactionRow = memo(function TransactionRow({
             <SelectValue placeholder="Select..." />
           </SelectTrigger>
           <SelectContent>
-            {DEPARTMENTS.map(dept => (
-              <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+            {departments.map(dept => (
+              <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </TableCell>
 
+      {/* Category column hidden - uncomment to enable
       <TableCell>
         <Select 
           value={categoryValue} 
@@ -161,6 +165,7 @@ const TransactionRow = memo(function TransactionRow({
           </SelectContent>
         </Select>
       </TableCell>
+      */}
       
       <TableCell>
         {getTransferStatus(transaction)}
@@ -185,8 +190,10 @@ const TransactionRow = memo(function TransactionRow({
     prevProps.transaction.id === nextProps.transaction.id &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.departmentValue === nextProps.departmentValue &&
-    prevProps.categoryValue === nextProps.categoryValue &&
-    prevProps.transaction.transfer_group_id === nextProps.transaction.transfer_group_id
+    prevProps.transaction.transfer_group_id === nextProps.transaction.transfer_group_id &&
+    prevProps.departments.length === nextProps.departments.length &&
+    prevProps.runningTotal === nextProps.runningTotal &&
+    prevProps.showRunningTotal === nextProps.showRunningTotal
   )
 })
 
@@ -194,12 +201,85 @@ export default function TransactionTable({
   transactions, 
   onLinkTransfer, 
   onDepartmentUpdate,
-  onCategoryUpdate,
-  loading 
+  loading,
+  departments,
+  onDepartmentsRefresh,
+  selectedDepartment
 }: TransactionTableProps) {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [departmentUpdates, setDepartmentUpdates] = useState<Record<string, string>>({})
-  const [categoryUpdates, setCategoryUpdates] = useState<Record<string, string>>({})
+
+  // Determine if we should show running total column
+  const showRunningTotal = selectedDepartment !== 'all'
+
+  // Sort transactions for consistent display when running total is shown
+  const displayTransactions = useMemo(() => {
+    if (showRunningTotal) {
+      // When showing running total, sort chronologically (newest first)
+      return [...transactions].sort((a, b) => {
+        // Primary sort: by date (newest first)
+        const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime()
+        if (dateComparison !== 0) {
+          return dateComparison
+        }
+        
+        // Secondary sort: by sequence_number for same-date transactions (highest first)
+        const seqA = a.sequence_number || 0
+        const seqB = b.sequence_number || 0
+        const seqComparison = seqB - seqA
+        if (seqComparison !== 0) {
+          return seqComparison
+        }
+        
+        // Tertiary sort: by transaction ID for absolute consistency
+        return b.id.localeCompare(a.id)
+      })
+    }
+    // Otherwise, keep original order (newest first)
+    return transactions
+  }, [transactions, showRunningTotal])
+
+  // Calculate running totals for the selected department
+  const runningTotals = useMemo(() => {
+    if (!showRunningTotal) return {}
+    
+    let runningTotal = 0
+    const totals: Record<string, number> = {}
+    
+    // Filter transactions that belong to the selected department first
+    const departmentTransactions = transactions.filter(transaction => {
+      const transactionDepartment = departmentUpdates[transaction.id] || transaction.source_department
+      return transactionDepartment === selectedDepartment
+    })
+    
+    // Sort chronologically (oldest first) for running total calculation
+    const sortedForCalculation = [...departmentTransactions].sort((a, b) => {
+      // Primary sort: by date (oldest first for running total)
+      const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime()
+      if (dateComparison !== 0) {
+        return dateComparison
+      }
+      
+      // Secondary sort: by sequence_number for same-date transactions (lowest first)
+      const seqA = a.sequence_number || 0
+      const seqB = b.sequence_number || 0
+      const seqComparison = seqA - seqB
+      if (seqComparison !== 0) {
+        return seqComparison
+      }
+      
+      // Tertiary sort: by transaction ID for absolute consistency
+      return a.id.localeCompare(b.id)
+    })
+    
+    // Calculate running totals chronologically
+    sortedForCalculation.forEach(transaction => {
+      runningTotal += transaction.amount
+      totals[transaction.id] = runningTotal
+    })
+    
+    return totals
+  }, [transactions, selectedDepartment, showRunningTotal, departmentUpdates])
 
   const handleRowSelect = useCallback((transactionId: string, checked: boolean) => {
     setSelectedRows(prev => {
@@ -215,11 +295,11 @@ export default function TransactionTable({
 
   const handleSelectAll = useCallback((checked: boolean) => {
     if (checked) {
-      setSelectedRows(new Set(transactions.map(t => t.id)))
+      setSelectedRows(new Set(displayTransactions.map(t => t.id)))
     } else {
       setSelectedRows(new Set())
     }
-  }, [transactions])
+  }, [displayTransactions])
 
   const handleDepartmentChange = useCallback(async (transactionId: string, department: string) => {
     setDepartmentUpdates(prev => ({
@@ -242,30 +322,10 @@ export default function TransactionTable({
     }
   }, [onDepartmentUpdate])
 
-  const handleCategoryChange = useCallback(async (transactionId: string, category: string) => {
-    setCategoryUpdates(prev => ({
-      ...prev,
-      [transactionId]: category
-    }))
-    
-    // Immediately save to database if onCategoryUpdate is provided
-    if (onCategoryUpdate) {
-      try {
-        await onCategoryUpdate(transactionId, category)
-      } catch {
-        // Revert the local state if the update failed
-        setCategoryUpdates(prev => {
-          const newUpdates = { ...prev }
-          delete newUpdates[transactionId]
-          return newUpdates
-        })
-      }
-    }
-  }, [onCategoryUpdate])
 
   // Virtualized row renderer
   const Row = useCallback(({ index, style }: { index: number; style: React.CSSProperties }) => {
-    const transaction = transactions[index]
+    const transaction = displayTransactions[index]
     if (!transaction) return null
 
     return (
@@ -275,14 +335,15 @@ export default function TransactionTable({
           isSelected={selectedRows.has(transaction.id)}
           onRowSelect={handleRowSelect}
           onDepartmentChange={handleDepartmentChange}
-          onCategoryChange={handleCategoryChange}
           onLinkTransfer={onLinkTransfer}
           departmentValue={departmentUpdates[transaction.id] || transaction.source_department || ''}
-          categoryValue={categoryUpdates[transaction.id] || transaction.category || ''}
+          departments={departments}
+          runningTotal={runningTotals[transaction.id]}
+          showRunningTotal={showRunningTotal}
         />
       </div>
     )
-  }, [transactions, selectedRows, handleRowSelect, handleDepartmentChange, handleCategoryChange, onLinkTransfer, departmentUpdates, categoryUpdates])
+  }, [displayTransactions, selectedRows, handleRowSelect, handleDepartmentChange, onLinkTransfer, departmentUpdates, departments, runningTotals, showRunningTotal])
 
   // Skeleton loading component
   const SkeletonRow = () => (
@@ -292,8 +353,11 @@ export default function TransactionTable({
       <TableCell><div className="h-4 w-48 bg-muted animate-pulse rounded"></div></TableCell>
       <TableCell><div className="h-4 w-16 bg-muted animate-pulse rounded"></div></TableCell>
       <TableCell><div className="h-4 w-20 bg-muted animate-pulse rounded"></div></TableCell>
+      {showRunningTotal && (
+        <TableCell><div className="h-4 w-24 bg-muted animate-pulse rounded"></div></TableCell>
+      )}
       <TableCell><div className="h-8 w-32 bg-muted animate-pulse rounded"></div></TableCell>
-      <TableCell><div className="h-8 w-32 bg-muted animate-pulse rounded"></div></TableCell>
+      {/* <TableCell><div className="h-8 w-32 bg-muted animate-pulse rounded"></div></TableCell> */}
       <TableCell><div className="h-4 w-20 bg-muted animate-pulse rounded"></div></TableCell>
       <TableCell><div className="h-8 w-16 bg-muted animate-pulse rounded"></div></TableCell>
     </TableRow>
@@ -313,8 +377,11 @@ export default function TransactionTable({
                 <TableHead>Description</TableHead>
                 <TableHead>Bank</TableHead>
                 <TableHead>Amount</TableHead>
+                {showRunningTotal && (
+                  <TableHead className="text-right">Running Total</TableHead>
+                )}
                 <TableHead>Department</TableHead>
-                <TableHead>Category</TableHead>
+                {/* <TableHead>Category</TableHead> */}
                 <TableHead>Transfer Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -330,7 +397,7 @@ export default function TransactionTable({
     )
   }
 
-  if (transactions.length === 0) {
+  if (displayTransactions.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground">No transactions found.</p>
@@ -341,7 +408,7 @@ export default function TransactionTable({
   return (
     <div className="space-y-4">
       <div className="rounded-md border">
-        {transactions.length > 100 ? (
+        {displayTransactions.length > 100 ? (
           // Use virtual scrolling for large datasets
           <div>
             <Table>
@@ -349,7 +416,7 @@ export default function TransactionTable({
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={transactions.length > 0 && selectedRows.size === transactions.length}
+                      checked={displayTransactions.length > 0 && selectedRows.size === displayTransactions.length}
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
@@ -357,8 +424,11 @@ export default function TransactionTable({
                   <TableHead>Description</TableHead>
                   <TableHead>Bank</TableHead>
                   <TableHead>Amount</TableHead>
+                  {showRunningTotal && (
+                    <TableHead className="text-right">Running Total</TableHead>
+                  )}
                   <TableHead>Department</TableHead>
-                  <TableHead>Category</TableHead>
+                  {/* <TableHead>Category</TableHead> */}
                   <TableHead>Transfer Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -368,7 +438,7 @@ export default function TransactionTable({
               <List
                 height={600}
                 width="100%"
-                itemCount={transactions.length}
+                itemCount={displayTransactions.length}
                 itemSize={80}
                 overscanCount={5}
               >
@@ -383,7 +453,7 @@ export default function TransactionTable({
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={transactions.length > 0 && selectedRows.size === transactions.length}
+                    checked={displayTransactions.length > 0 && selectedRows.size === displayTransactions.length}
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
@@ -391,24 +461,28 @@ export default function TransactionTable({
                 <TableHead>Description</TableHead>
                 <TableHead>Bank</TableHead>
                 <TableHead>Amount</TableHead>
+                {showRunningTotal && (
+                  <TableHead className="text-right">Running Total</TableHead>
+                )}
                 <TableHead>Department</TableHead>
-                <TableHead>Category</TableHead>
+                {/* <TableHead>Category</TableHead> */}
                 <TableHead>Transfer Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.map((transaction) => (
+              {displayTransactions.map((transaction) => (
                 <TransactionRow
                   key={transaction.id}
                   transaction={transaction}
                   isSelected={selectedRows.has(transaction.id)}
                   onRowSelect={handleRowSelect}
                   onDepartmentChange={handleDepartmentChange}
-                  onCategoryChange={handleCategoryChange}
                   onLinkTransfer={onLinkTransfer}
                   departmentValue={departmentUpdates[transaction.id] || transaction.source_department || ''}
-                  categoryValue={categoryUpdates[transaction.id] || transaction.category || ''}
+                  departments={departments}
+                  runningTotal={runningTotals[transaction.id]}
+                  showRunningTotal={showRunningTotal}
                 />
               ))}
             </TableBody>
