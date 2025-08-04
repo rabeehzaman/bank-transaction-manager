@@ -236,19 +236,23 @@ export const transactionService = {
         rajhiQuery = rajhiQuery.or(`description.ilike.${searchTerm},reference_number.ilike.${searchTerm}`)
       }
 
+      // If department filter is applied, we need to get more data initially
+      // since department filtering happens client-side after joining with tags
+      const fetchLimit = filters?.department && filters.department !== 'all' ? limit * 3 : limit
+
       // Bank filter - only query the relevant bank's table
       let ahliResult, rajhiResult
       if (filters?.bank === 'Ahli') {
-        ahliResult = await ahliQuery.limit(limit)
+        ahliResult = await ahliQuery.limit(fetchLimit)
         rajhiResult = { data: [], error: null }
       } else if (filters?.bank === 'Rajhi') {
-        rajhiResult = await rajhiQuery.limit(limit)
+        rajhiResult = await rajhiQuery.limit(fetchLimit)
         ahliResult = { data: [], error: null }
       } else {
         // Default: query both banks with half limit each
         const [ahliRes, rajhiRes] = await Promise.all([
-          ahliQuery.limit(Math.ceil(limit / 2)),
-          rajhiQuery.limit(Math.ceil(limit / 2))
+          ahliQuery.limit(Math.ceil(fetchLimit / 2)),
+          rajhiQuery.limit(Math.ceil(fetchLimit / 2))
         ])
         ahliResult = ahliRes
         rajhiResult = rajhiRes
