@@ -192,7 +192,7 @@ export const transactionService = {
     }
   },
 
-  // Optimized cursor-based pagination method with server-side filtering
+  // Clean cursor-based pagination method with simple client-side filtering
   async getTransactionsPaginated(
     limit = 50,
     cursor?: string,
@@ -209,34 +209,8 @@ export const transactionService = {
     }
 
     try {
-      // Pre-filter by department if needed to optimize query
-      let departmentFilteredIds: Set<string> | null = null
-      
-      if (filters?.department && filters.department !== 'all') {
-        if (filters.department === 'Unassigned') {
-          // Get all assigned transaction IDs to exclude them
-          const assignedResult = await supabase
-            .from('transaction_tags')
-            .select('transaction_id')
-            .not('source_department', 'is', null)
-          
-          if (assignedResult.error) throw assignedResult.error
-          const assignedIds = new Set(assignedResult.data?.map(t => t.transaction_id) || [])
-          departmentFilteredIds = assignedIds // We'll use this to exclude assigned transactions
-        } else {
-          // Get transaction IDs for specific department
-          const deptResult = await supabase
-            .from('transaction_tags')
-            .select('transaction_id')
-            .eq('source_department', filters.department)
-          
-          if (deptResult.error) throw deptResult.error
-          departmentFilteredIds = new Set(deptResult.data?.map(t => t.transaction_id) || [])
-        }
-      }
-
-      // Build transaction queries with increased limits for department filtering
-      const fetchLimit = departmentFilteredIds ? limit * 3 : limit // Fetch more when filtering
+      // Build transaction queries - fetch more than needed for client-side filtering
+      const fetchLimit = Math.max(limit * 2, 200)
 
       let ahliQuery = supabase
         .from('ahli_transactions')
@@ -389,21 +363,19 @@ export const transactionService = {
         })
       ]
 
-      // Apply server-side department filtering
-      if (filters?.department && filters.department !== 'all' && departmentFilteredIds) {
+      // Apply client-side department filtering - simple and clean
+      if (filters?.department && filters.department !== 'all') {
         if (filters.department === 'Unassigned') {
-          // Show only transactions NOT in the assigned set
-          combinedTransactions = combinedTransactions.filter(t => !departmentFilteredIds!.has(t.id))
+          combinedTransactions = combinedTransactions.filter(t => !t.source_department)
         } else {
-          // Show only transactions in the department filtered set
-          combinedTransactions = combinedTransactions.filter(t => departmentFilteredIds!.has(t.id))
+          combinedTransactions = combinedTransactions.filter(t => t.source_department === filters.department)
         }
       }
 
       // Sort by date descending
       combinedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-      // Apply remaining client-side filters (department filtering is now done server-side)
+      // Apply remaining client-side filters
       let filteredTransactions = combinedTransactions
 
       if (filters?.linkingStatus) {
