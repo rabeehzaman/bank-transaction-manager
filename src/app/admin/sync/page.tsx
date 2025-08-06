@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
 import { Zap, Play, RotateCcw, CheckCircle, AlertCircle, Clock } from 'lucide-react'
 import { ruleService, DepartmentRule } from '@/lib/supabase-admin'
-import { transactionService } from '@/lib/supabase'
+import { transactionService, departmentService, Department } from '@/lib/supabase'
 
 interface SyncProgress {
   total: number
@@ -21,6 +21,7 @@ interface SyncProgress {
 
 export default function AdminSyncPage() {
   const [rules, setRules] = useState<DepartmentRule[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
   const [syncProgress, setSyncProgress] = useState<SyncProgress>({
     total: 0,
@@ -34,15 +35,19 @@ export default function AdminSyncPage() {
   } | null>(null)
 
   useEffect(() => {
-    loadRules()
+    loadData()
   }, [])
 
-  const loadRules = async () => {
+  const loadData = async () => {
     try {
-      const rulesData = await ruleService.getAllRules()
+      const [rulesData, departmentsData] = await Promise.all([
+        ruleService.getAllRules(),
+        departmentService.getAllDepartments()
+      ])
       setRules(rulesData.filter(r => r.is_active))
+      setDepartments(departmentsData)
     } catch {
-      toast.error('Failed to load rules')
+      toast.error('Failed to load data')
     } finally {
       setLoading(false)
     }
@@ -62,7 +67,7 @@ export default function AdminSyncPage() {
 
     try {
       // Get all transactions
-      const transactions = await transactionService.getAllTransactionsWithMetadata()
+      const transactions = await transactionService.getAllTransactions()
       
       setSyncProgress(prev => ({
         ...prev,
@@ -79,7 +84,7 @@ export default function AdminSyncPage() {
         
         await Promise.all(batch.map(async (transaction) => {
           // Skip transactions that already have a manually assigned department
-          if (transaction.source_department) {
+          if (transaction.department && transaction.department !== 'Unassigned') {
             return
           }
 
@@ -94,7 +99,17 @@ export default function AdminSyncPage() {
             if (matches) {
               const department = rule.department?.name
               if (department) {
-                await transactionService.updateTransactionDepartment(transaction.id, department)
+                // Find department ID
+                const dept = departments.find(d => d.name === department)
+                if (dept) {
+                  await transactionService.assignDepartment(
+                    transaction.Bank,
+                    new Date(transaction.Date).toISOString().split('T')[0],
+                    transaction.Description,
+                    transaction.net_amount,
+                    dept.id
+                  )
+                }
                 rulesApplied++
                 break // Only apply the first matching rule
               }

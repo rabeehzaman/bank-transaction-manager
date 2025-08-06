@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, FileText } from 'lucide-react'
-import { departmentService, ruleService, Department, DepartmentRule } from '@/lib/supabase-admin'
+import { Department, departmentService } from '@/lib/supabase'
+import { ruleService, DepartmentRule } from '@/lib/supabase-admin'
 
 export default function AdminRulesPage() {
   const [departments, setDepartments] = useState<Department[]>([])
@@ -178,6 +179,9 @@ export default function AdminRulesPage() {
               <SelectContent>
                 <SelectItem value="Ahli">Ahli</SelectItem>
                 <SelectItem value="Rajhi">Rajhi</SelectItem>
+                <SelectItem value="GIB">GIB</SelectItem>
+                <SelectItem value="Riyad">Riyad</SelectItem>
+                <SelectItem value="Alinma">Alinma</SelectItem>
               </SelectContent>
             </Select>
           </div>

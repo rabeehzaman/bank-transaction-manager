@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 import {
   Table,
   TableBody,
@@ -11,11 +12,39 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { EnhancedUnifiedTransaction } from '@/lib/supabase'
-import { TrendingUp, TrendingDown, Link, AlertTriangle } from 'lucide-react'
+import { 
+  ChartContainer, 
+  ChartLegend, 
+  ChartLegendContent, 
+  ChartTooltip, 
+  ChartTooltipContent 
+} from '@/components/ui/chart'
+import { FrontendTransaction } from '@/lib/supabase'
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Link, 
+  AlertTriangle, 
+  PieChart, 
+  BarChart3, 
+  Calendar,
+  Building2
+} from 'lucide-react'
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart as RechartsPieChart,
+  ResponsiveContainer,
+  XAxis,
+  YAxis
+} from 'recharts'
 
 interface SummaryDashboardProps {
-  transactions: EnhancedUnifiedTransaction[]
+  transactions: FrontendTransaction[]
 }
 
 interface DepartmentSummary {
@@ -29,13 +58,34 @@ interface DepartmentSummary {
   unlinkedCount: number
 }
 
+const chartConfig = {
+  totalIn: {
+    label: "Cash In",
+    color: "hsl(var(--chart-1))",
+  },
+  totalOut: {
+    label: "Cash Out", 
+    color: "hsl(var(--chart-2))",
+  },
+  netBalance: {
+    label: "Net Balance",
+    color: "hsl(var(--chart-3))",
+  },
+}
+
 export default function SummaryDashboard({ transactions }: SummaryDashboardProps) {
-  const summary = useMemo(() => {
+  const { departmentSummary, bankSummary, monthlyTrends, totals } = useMemo(() => {
     const departmentStats: Record<string, DepartmentSummary> = {}
+    const bankStats: Record<string, { bank: string; totalIn: number; totalOut: number; count: number }> = {}
+    const monthlyData: Record<string, { month: string; totalIn: number; totalOut: number; count: number }> = {}
     
     transactions.forEach(transaction => {
-      const dept = transaction.source_department || 'Unassigned'
+      const dept = transaction.department || 'Unassigned'
+      const bank = transaction.Bank
+      const date = new Date(transaction.Date)
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
       
+      // Department stats
       if (!departmentStats[dept]) {
         departmentStats[dept] = {
           department: dept,
@@ -51,43 +101,63 @@ export default function SummaryDashboard({ transactions }: SummaryDashboardProps
       
       const stats = departmentStats[dept]
       
-      if (transaction.amount > 0) {
-        stats.totalIn += transaction.amount
+      if (transaction.net_amount > 0) {
+        stats.totalIn += transaction.net_amount
         stats.transfersIn += 1
       } else {
-        stats.totalOut += Math.abs(transaction.amount)
+        stats.totalOut += Math.abs(transaction.net_amount)
         stats.transfersOut += 1
       }
       
       stats.netBalance = stats.totalIn - stats.totalOut
+      stats.unlinkedCount += 1
       
-      if (transaction.transfer_group_id) {
-        stats.linkedCount += 1
-      } else {
-        stats.unlinkedCount += 1
+      // Bank stats
+      if (!bankStats[bank]) {
+        bankStats[bank] = { bank, totalIn: 0, totalOut: 0, count: 0 }
       }
+      if (transaction.net_amount > 0) {
+        bankStats[bank].totalIn += transaction.net_amount
+      } else {
+        bankStats[bank].totalOut += Math.abs(transaction.net_amount)
+      }
+      bankStats[bank].count += 1
+      
+      // Monthly trends
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { month: monthKey, totalIn: 0, totalOut: 0, count: 0 }
+      }
+      if (transaction.net_amount > 0) {
+        monthlyData[monthKey].totalIn += transaction.net_amount
+      } else {
+        monthlyData[monthKey].totalOut += Math.abs(transaction.net_amount)
+      }
+      monthlyData[monthKey].count += 1
     })
     
-    return Object.values(departmentStats).sort((a, b) => 
-      Math.abs(b.netBalance) - Math.abs(a.netBalance)
-    )
-  }, [transactions])
-
-  const totals = useMemo(() => {
-    const linked = transactions.filter(t => t.transfer_group_id).length
-    const unlinked = transactions.filter(t => !t.transfer_group_id).length
-    const totalIn = transactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0)
-    const totalOut = transactions.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    // Calculate totals
+    const linked = 0
+    const unlinked = transactions.length
+    const totalIn = transactions.filter(t => t.net_amount > 0).reduce((sum, t) => sum + t.net_amount, 0)
+    const totalOut = transactions.filter(t => t.net_amount < 0).reduce((sum, t) => sum + Math.abs(t.net_amount), 0)
     
     return {
-      linked,
-      unlinked,
-      totalIn,
-      totalOut,
-      netBalance: totalIn - totalOut,
-      linkingPercentage: transactions.length > 0 ? (linked / transactions.length) * 100 : 0
+      departmentSummary: Object.values(departmentStats).sort((a, b) => Math.abs(b.netBalance) - Math.abs(a.netBalance)),
+      bankSummary: Object.values(bankStats).sort((a, b) => (b.totalIn + b.totalOut) - (a.totalIn + a.totalOut)),
+      monthlyTrends: Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month)).slice(-6), // Last 6 months
+      totals: {
+        linked,
+        unlinked,
+        totalIn,
+        totalOut,
+        netBalance: totalIn - totalOut,
+        linkingPercentage: transactions.length > 0 ? (linked / transactions.length) * 100 : 0
+      }
     }
   }, [transactions])
+
+  // Color palette for charts
+  const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))']
 
   const formatAmount = (amount: number) => {
     return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
@@ -174,10 +244,133 @@ export default function SummaryDashboard({ transactions }: SummaryDashboardProps
         </Card>
       </div>
 
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Monthly Trends Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Monthly Trends
+            </CardTitle>
+            <CardDescription>
+              Transaction volume over the last 6 months
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={chartConfig} className="h-[300px] w-full">
+              <LineChart data={monthlyTrends}>
+                <XAxis dataKey="month" />
+                <YAxis />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line 
+                  type="monotone" 
+                  dataKey="totalIn" 
+                  stroke="hsl(var(--chart-1))" 
+                  strokeWidth={2}
+                  name="Cash In"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="totalOut" 
+                  stroke="hsl(var(--chart-2))" 
+                  strokeWidth={2}
+                  name="Cash Out"
+                />
+              </LineChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        {/* Bank Distribution Pie Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PieChart className="h-5 w-5" />
+              Bank Distribution
+            </CardTitle>
+            <CardDescription>
+              Transaction volume by bank
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={chartConfig} className="h-[300px] w-full">
+              <RechartsPieChart>
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Pie
+                  data={bankSummary}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ bank, percent }) => `${bank} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="count"
+                  nameKey="bank"
+                >
+                  {bankSummary.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <ChartLegend content={<ChartLegendContent />} />
+              </RechartsPieChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        {/* Department Performance Bar Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Department Performance
+            </CardTitle>
+            <CardDescription>
+              Net balance by department (top 10)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={chartConfig} className="h-[400px] w-full">
+              <BarChart data={departmentSummary.slice(0, 10)}>
+                <XAxis 
+                  dataKey="department" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                />
+                <YAxis />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Bar 
+                  dataKey="totalIn" 
+                  fill="hsl(var(--chart-1))" 
+                  name="Cash In"
+                  radius={[2, 2, 0, 0]}
+                />
+                <Bar 
+                  dataKey="totalOut" 
+                  fill="hsl(var(--chart-2))" 
+                  name="Cash Out"
+                  radius={[2, 2, 0, 0]}
+                />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Separator />
+
       {/* Department Summary Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Department Summary</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            Department Summary
+          </CardTitle>
+          <CardDescription>
+            Detailed breakdown of transaction activity by department
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -193,7 +386,7 @@ export default function SummaryDashboard({ transactions }: SummaryDashboardProps
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {summary.map((dept) => (
+                {departmentSummary.map((dept) => (
                   <TableRow key={dept.department}>
                     <TableCell className="font-medium">
                       <Badge variant={dept.department === 'Unassigned' ? 'outline' : 'default'}>

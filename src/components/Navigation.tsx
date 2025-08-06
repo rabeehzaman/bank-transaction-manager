@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Banknote, Settings, Database, Shield, Upload } from 'lucide-react'
+import { Banknote, Database, Shield, Upload } from 'lucide-react'
 
 export default function Navigation() {
   const pathname = usePathname()
@@ -41,17 +41,6 @@ export default function Navigation() {
               <Link href="/import">
                 <Upload className="w-4 h-4 mr-2" />
                 Import
-              </Link>
-            </Button>
-
-            <Button
-              variant={isActive('/setup') ? 'default' : 'ghost'}
-              asChild
-              size="sm"
-            >
-              <Link href="/setup">
-                <Settings className="w-4 h-4 mr-2" />
-                Setup
               </Link>
             </Button>
 

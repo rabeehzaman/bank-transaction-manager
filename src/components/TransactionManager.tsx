@@ -4,17 +4,22 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Combobox, ComboboxOption } from '@/components/ui/combobox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import TransactionTable from './TransactionTable'
+import TransactionTableNew from './TransactionTableNew'
 import TransferLinkingModal from './TransferLinkingModal'
 import SummaryDashboard from './SummaryDashboard'
-import { transactionService, EnhancedUnifiedTransaction, PaginatedTransactions } from '@/lib/supabase'
-import { departmentService, Department } from '@/lib/supabase-admin'
+import { transactionService, FrontendTransaction, PaginatedFrontendTransactions, departmentService, Department } from '@/lib/supabase'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
+import { DateRange } from 'react-day-picker'
 import { toast } from 'sonner'
+import { Search, Building2, Banknote, Calendar, Filter, RefreshCw, Loader2 } from 'lucide-react'
 
 export default function TransactionManager() {
-  const [transactions, setTransactions] = useState<EnhancedUnifiedTransaction[]>([])
+  const [transactions, setTransactions] = useState<FrontendTransaction[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -22,19 +27,67 @@ export default function TransactionManager() {
   const [selectedBank, setSelectedBank] = useState<string>('all')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [linkingStatus, setLinkingStatus] = useState<string>('all')
-  const [selectedTransaction, setSelectedTransaction] = useState<EnhancedUnifiedTransaction | null>(null)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>()
+  const [selectedTransaction, setSelectedTransaction] = useState<FrontendTransaction | null>(null)
   const [isLinkingModalOpen, setIsLinkingModalOpen] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [nextCursor, setNextCursor] = useState<string | undefined>()
   const nextCursorRef = useRef<string | undefined>(undefined)
+
+  // Helper function to format date in local timezone as YYYY-MM-DD
+  const formatDateForAPI = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Memoized options for comboboxes
+  const bankOptions: ComboboxOption[] = useMemo(() => [
+    { value: 'all', label: 'All Banks', icon: <Banknote className="w-4 h-4" /> },
+    { value: 'Ahli', label: 'Ahli Bank', icon: <Building2 className="w-4 h-4" /> },
+    { value: 'Rajhi', label: 'Rajhi Bank', icon: <Building2 className="w-4 h-4" /> },
+    { value: 'GIB', label: 'GIB Bank', icon: <Building2 className="w-4 h-4" /> },
+    { value: 'Riyad', label: 'Riyad Bank', icon: <Building2 className="w-4 h-4" /> },
+    { value: 'Alinma', label: 'Alinma Bank', icon: <Building2 className="w-4 h-4" /> },
+  ], [])
+
+  const departmentOptions: ComboboxOption[] = useMemo(() => [
+    { value: 'all', label: 'All Departments', icon: <Building2 className="w-4 h-4" /> },
+    { value: 'Unassigned', label: 'Unassigned', icon: <Filter className="w-4 h-4" /> },
+    ...departments.map(dept => ({
+      value: dept.name,
+      label: dept.name,
+      icon: <Building2 className="w-4 h-4" />
+    }))
+  ], [departments])
+
+  const statusOptions: ComboboxOption[] = useMemo(() => [
+    { value: 'all', label: 'All Transactions', icon: <Filter className="w-4 h-4" /> },
+    { value: 'linked', label: 'Linked Transfers', icon: <Filter className="w-4 h-4" /> },
+    { value: 'unlinked', label: 'Unlinked', icon: <Filter className="w-4 h-4" /> },
+  ], [])
 
   // Memoized filters object to prevent unnecessary API calls
   const filters = useMemo(() => ({
     bank: selectedBank !== 'all' ? selectedBank : undefined,
     department: selectedDepartment !== 'all' ? selectedDepartment : undefined,
     linkingStatus: linkingStatus !== 'all' ? linkingStatus : undefined,
-    searchTerm: searchTerm.trim() || undefined
-  }), [selectedBank, selectedDepartment, linkingStatus, searchTerm])
+    searchTerm: searchTerm.trim() || undefined,
+    dateFrom: dateRange?.from ? formatDateForAPI(dateRange.from) : undefined,
+    dateTo: dateRange?.to ? formatDateForAPI(dateRange.to) : undefined
+  }), [selectedBank, selectedDepartment, linkingStatus, searchTerm, dateRange])
+
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (filters.bank) count++
+    if (filters.department) count++
+    if (filters.linkingStatus) count++
+    if (filters.searchTerm) count++
+    if (filters.dateFrom || filters.dateTo) count++
+    return count
+  }, [filters])
 
   // Update ref when nextCursor changes
   useEffect(() => {
@@ -54,7 +107,7 @@ export default function TransactionManager() {
     }
 
     try {
-      const result: PaginatedTransactions = await transactionService.getTransactionsPaginated(
+      const result: PaginatedFrontendTransactions = await transactionService.getTransactionsPaginated(
         100, // Load 100 transactions at a time
         resetData ? undefined : nextCursorRef.current,
         filters
@@ -124,50 +177,45 @@ export default function TransactionManager() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [loadDepartments])
 
-  const handleLinkTransfer = (transaction: EnhancedUnifiedTransaction) => {
+  // These handlers are kept for compatibility with admin pages that might still use the old TransactionTable
+  const handleLinkTransfer = (transaction: FrontendTransaction) => {
     setSelectedTransaction(transaction)
     setIsLinkingModalOpen(true)
   }
 
-  const handleDepartmentUpdate = useCallback(async (transactionId: string, department: string) => {
+  const handleDepartmentUpdate = useCallback(async (transaction: FrontendTransaction, departmentId: string) => {
     try {
-      await transactionService.updateTransactionDepartment(transactionId, department)
+      await transactionService.assignDepartment(
+        transaction.Bank,
+        new Date(transaction.Date).toISOString().split('T')[0],
+        transaction.Description,
+        transaction.net_amount,
+        departmentId
+      )
       toast.success('Department updated successfully')
       
-      // Update the transaction in the local state instead of reloading all data
-      setTransactions(prev => prev.map(t => 
-        t.id === transactionId 
-          ? { ...t, source_department: department }
-          : t
-      ))
+      // Reload transactions to see changes
+      loadTransactions(true)
     } catch (error) {
       console.error('Error updating department:', error)
       toast.error('Failed to update department')
     }
-  }, [])
+  }, [loadTransactions])
 
-  const handleCategoryUpdate = useCallback(async (transactionId: string, category: string) => {
-    try {
-      await transactionService.updateTransactionCategory(transactionId, category)
-      toast.success('Category updated successfully')
-      
-      // Update the transaction in the local state instead of reloading all data
-      setTransactions(prev => prev.map(t => 
-        t.id === transactionId 
-          ? { ...t, category: category }
-          : t
-      ))
-    } catch (error) {
-      console.error('Error updating category:', error)
-      toast.error('Failed to update category')
-    }
-  }, [])
 
   const handleLinkingComplete = useCallback(() => {
     setIsLinkingModalOpen(false)
     setSelectedTransaction(null)
     loadTransactions(true) // Reload to see changes
   }, [loadTransactions])
+
+  const clearAllFilters = useCallback(() => {
+    setSearchTerm('')
+    setSelectedBank('all')
+    setSelectedDepartment('all')
+    setLinkingStatus('all')
+    setDateRange(undefined)
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -178,86 +226,138 @@ export default function TransactionManager() {
         </TabsList>
 
         <TabsContent value="transactions" className="space-y-6">
-          {/* Filters */}
+          {/* Enhanced Filters */}
           <Card>
             <CardHeader>
-              <CardTitle>Filters</CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-5 h-5" />
+                  <CardTitle>Filters</CardTitle>
+                  {activeFilterCount > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {activeFilterCount} active
+                    </Badge>
+                  )}
+                </div>
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    Clear all
+                  </Button>
+                )}
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Search</label>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="search" className="flex items-center gap-2">
+                    <Search className="w-4 h-4" />
+                    Search
+                  </Label>
                   <Input
-                    placeholder="Search description, amount, or reference..."
+                    id="search"
+                    placeholder="Description, amount, reference..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                    aria-describedby="search-help"
+                    autoComplete="off"
                   />
+                  <p id="search-help" className="sr-only">
+                    Search transactions by description, amount, or reference number
+                  </p>
                 </div>
                 
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Bank</label>
-                  <Select value={selectedBank} onValueChange={setSelectedBank}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Banks</SelectItem>
-                      <SelectItem value="Ahli">Ahli Bank</SelectItem>
-                      <SelectItem value="Rajhi">Rajhi Bank</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <Label>Bank</Label>
+                  <Combobox
+                    options={bankOptions}
+                    value={selectedBank}
+                    onValueChange={setSelectedBank}
+                    placeholder="Select bank"
+                    searchPlaceholder="Search banks..."
+                    emptyText="No banks found."
+                  />
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Department</label>
-                  <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Departments</SelectItem>
-                      <SelectItem value="Unassigned">Unassigned</SelectItem>
-                      {departments.map(dept => (
-                        <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <Label>Department</Label>
+                  <Combobox
+                    options={departmentOptions}
+                    value={selectedDepartment}
+                    onValueChange={setSelectedDepartment}
+                    placeholder="Select department"
+                    searchPlaceholder="Search departments..."
+                    emptyText="No departments found."
+                  />
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Transfer Status</label>
-                  <Select value={linkingStatus} onValueChange={setLinkingStatus}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Transactions</SelectItem>
-                      <SelectItem value="linked">Linked Transfers</SelectItem>
-                      <SelectItem value="unlinked">Unlinked</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <Label>Transfer Status</Label>
+                  <Combobox
+                    options={statusOptions}
+                    value={linkingStatus}
+                    onValueChange={setLinkingStatus}
+                    placeholder="Select status"
+                    searchPlaceholder="Search status..."
+                    emptyText="No status found."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Date Range
+                  </Label>
+                  <DateRangePicker
+                    dateRange={dateRange}
+                    onDateRangeChange={setDateRange}
+                    placeholder="Select date range"
+                  />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Showing {transactions.length} transactions
-                  {hasMore && ' (load more for additional results)'}
-                </p>
-                <div className="space-x-2">
+              <div className="flex items-center justify-between pt-4 border-t">
+                <div className="flex items-center gap-4">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {transactions.length} transactions
+                    {hasMore && ' (load more for additional results)'}
+                  </p>
+                  {loading && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
                   <Button 
                     onClick={() => loadTransactions(true)} 
                     disabled={loading}
                     variant="outline"
+                    size="sm"
                   >
-                    {loading ? 'Loading...' : 'Refresh'}
+                    <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                    Refresh
                   </Button>
                   {hasMore && (
                     <Button 
                       onClick={loadMoreTransactions}
                       disabled={loadingMore}
+                      size="sm"
                     >
-                      {loadingMore ? 'Loading...' : 'Load More'}
+                      {loadingMore ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        'Load More'
+                      )}
                     </Button>
                   )}
                 </div>
@@ -271,15 +371,7 @@ export default function TransactionManager() {
               <CardTitle>Transactions</CardTitle>
             </CardHeader>
             <CardContent>
-              <TransactionTable 
-                transactions={transactions}
-                onLinkTransfer={handleLinkTransfer}
-                onDepartmentUpdate={handleDepartmentUpdate}
-                onCategoryUpdate={handleCategoryUpdate}
-                loading={loading}
-                departments={departments}
-                selectedDepartment={selectedDepartment}
-              />
+              <TransactionTableNew />
               
               {/* Load More Button at bottom of table */}
               {hasMore && !loading && (

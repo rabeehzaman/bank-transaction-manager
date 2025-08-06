@@ -3,25 +3,20 @@
 import { useState, memo, useCallback, useMemo, useEffect } from 'react'
 import { FixedSizeList as List } from 'react-window'
 import {
-  Table,
-  TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { EnhancedUnifiedTransaction } from '@/lib/supabase'
-import { Department } from '@/lib/supabase-admin'
+import { FrontendTransaction, Department } from '@/lib/supabase'
 import { format } from 'date-fns'
-import { Link, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Link, AlertTriangle } from 'lucide-react'
 
 interface TransactionTableProps {
-  transactions: EnhancedUnifiedTransaction[]
-  onLinkTransfer: (transaction: EnhancedUnifiedTransaction) => void
+  transactions: FrontendTransaction[]
+  onLinkTransfer: (transaction: FrontendTransaction) => void
   onDepartmentUpdate?: (transactionId: string, department: string) => void
   onCategoryUpdate?: (transactionId: string, category: string) => void
   loading: boolean
@@ -43,11 +38,11 @@ const TransactionRow = memo(function TransactionRow({
   runningTotal,
   showRunningTotal
 }: {
-  transaction: EnhancedUnifiedTransaction
+  transaction: FrontendTransaction
   isSelected: boolean
   onRowSelect: (transactionId: string, checked: boolean) => void
   onDepartmentChange: (transactionId: string, department: string) => void
-  onLinkTransfer: (transaction: EnhancedUnifiedTransaction) => void
+  onLinkTransfer: (transaction: FrontendTransaction) => void
   departmentValue: string
   departments: Department[]
   runningTotal?: number
@@ -73,15 +68,8 @@ const TransactionRow = memo(function TransactionRow({
     )
   }
 
-  const getTransferStatus = (transaction: EnhancedUnifiedTransaction) => {
-    if (transaction.transfer_group_id) {
-      return (
-        <Badge variant="default" className="bg-green-100 text-green-800">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          Linked #{transaction.transfer_group_id.slice(-8)}
-        </Badge>
-      )
-    }
+  const getTransferStatus = () => {
+    // Since we don't have transfer linking yet in the new system, all are unlinked
     return (
       <Badge variant="outline" className="text-orange-600 border-orange-300">
         <AlertTriangle className="w-3 h-3 mr-1" />
@@ -94,36 +82,31 @@ const TransactionRow = memo(function TransactionRow({
     <TableRow className={isSelected ? 'bg-muted/50' : ''}>
       <TableCell>
         <Checkbox
-          checked={!!isSelected}
-          onCheckedChange={(checked) => onRowSelect(transaction.id, !!checked)}
+          checked={isSelected || false}
+          onCheckedChange={(checked) => onRowSelect(transaction.content_hash, !!checked)}
         />
       </TableCell>
       
       <TableCell>
-        {format(new Date(transaction.date), 'MMM dd, yyyy')}
+        {format(new Date(transaction.Date), 'MMM dd, yyyy')}
       </TableCell>
       
       <TableCell className="max-w-xs">
-        <div className="whitespace-normal break-words" title={transaction.description}>
-          {transaction.description}
+        <div className="whitespace-normal break-words" title={transaction.Description}>
+          {transaction.Description}
         </div>
-        {transaction.reference && (
-          <div className="text-xs text-muted-foreground whitespace-normal break-words">
-            Ref: {transaction.reference}
-          </div>
-        )}
       </TableCell>
       
       <TableCell>
         <Badge 
-          variant={transaction.bank_name === 'Ahli' ? 'default' : 'secondary'}
+          variant="default"
         >
-          {transaction.bank_name}
+          {transaction.Bank}
         </Badge>
       </TableCell>
       
       <TableCell className="font-mono">
-        {formatAmount(transaction.amount)}
+        {formatAmount(transaction.net_amount)}
       </TableCell>
 
       {showRunningTotal && (
@@ -135,7 +118,7 @@ const TransactionRow = memo(function TransactionRow({
       <TableCell>
         <Select 
           value={departmentValue} 
-          onValueChange={(value) => onDepartmentChange(transaction.id, value)}
+          onValueChange={(value) => onDepartmentChange(transaction.content_hash, value)}
         >
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Select..." />
@@ -152,7 +135,7 @@ const TransactionRow = memo(function TransactionRow({
       <TableCell>
         <Select 
           value={categoryValue} 
-          onValueChange={(value) => onCategoryChange(transaction.id, value)}
+          onValueChange={(value) => onCategoryChange(transaction.content_hash, value)}
         >
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Select..." />
@@ -167,7 +150,7 @@ const TransactionRow = memo(function TransactionRow({
       */}
       
       <TableCell>
-        {getTransferStatus(transaction)}
+        {getTransferStatus()}
       </TableCell>
       
       <TableCell className="text-right">
@@ -178,7 +161,7 @@ const TransactionRow = memo(function TransactionRow({
           className="ml-2"
         >
           <Link className="w-4 h-4 mr-1" />
-          {transaction.transfer_group_id ? 'Edit Link' : 'Link'}
+Link
         </Button>
       </TableCell>
     </TableRow>
@@ -186,10 +169,9 @@ const TransactionRow = memo(function TransactionRow({
 }, (prevProps, nextProps) => {
   // Custom comparison function for memo
   return (
-    prevProps.transaction.id === nextProps.transaction.id &&
+    prevProps.transaction.content_hash === nextProps.transaction.content_hash &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.departmentValue === nextProps.departmentValue &&
-    prevProps.transaction.transfer_group_id === nextProps.transaction.transfer_group_id &&
     prevProps.departments.length === nextProps.departments.length &&
     prevProps.runningTotal === nextProps.runningTotal &&
     prevProps.showRunningTotal === nextProps.showRunningTotal
@@ -210,11 +192,11 @@ const GridTransactionRow = memo(function GridTransactionRow({
   style,
   isVirtualized = false
 }: {
-  transaction: EnhancedUnifiedTransaction
+  transaction: FrontendTransaction
   isSelected: boolean
   onRowSelect: (transactionId: string, checked: boolean) => void
   onDepartmentChange: (transactionId: string, department: string) => void
-  onLinkTransfer: (transaction: EnhancedUnifiedTransaction) => void
+  onLinkTransfer: (transaction: FrontendTransaction) => void
   departmentValue: string
   departments: Department[]
   runningTotal?: number
@@ -242,15 +224,8 @@ const GridTransactionRow = memo(function GridTransactionRow({
     )
   }
 
-  const getTransferStatus = (transaction: EnhancedUnifiedTransaction) => {
-    if (transaction.transfer_group_id) {
-      return (
-        <Badge variant="default" className="bg-green-100 text-green-800">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          Linked #{transaction.transfer_group_id.slice(-8)}
-        </Badge>
-      )
-    }
+  const getTransferStatus = () => {
+    // Since we don't have transfer linking yet in the new system, all are unlinked
     return (
       <Badge variant="outline" className="text-orange-600 border-orange-300">
         <AlertTriangle className="w-3 h-3 mr-1" />
@@ -277,40 +252,35 @@ const GridTransactionRow = memo(function GridTransactionRow({
       {/* Checkbox */}
       <div className="flex justify-center">
         <Checkbox
-          checked={!!isSelected}
-          onCheckedChange={(checked) => onRowSelect(transaction.id, !!checked)}
+          checked={isSelected || false}
+          onCheckedChange={(checked) => onRowSelect(transaction.content_hash, !!checked)}
         />
       </div>
       
       {/* Date */}
       <div className="text-sm">
-        {format(new Date(transaction.date), 'MMM dd, yyyy')}
+        {format(new Date(transaction.Date), 'MMM dd, yyyy')}
       </div>
       
       {/* Description */}
       <div className="text-sm min-w-0">
-        <div className="font-medium line-clamp-2 break-words" title={transaction.description}>
-          {transaction.description}
+        <div className="font-medium line-clamp-2 break-words" title={transaction.Description}>
+          {transaction.Description}
         </div>
-        {transaction.reference && (
-          <div className="text-xs text-muted-foreground line-clamp-1 break-words">
-            Ref: {transaction.reference}
-          </div>
-        )}
       </div>
       
       {/* Bank */}
       <div className="flex justify-center">
         <Badge 
-          variant={transaction.bank_name === 'Ahli' ? 'default' : 'secondary'}
+          variant="default"
         >
-          {transaction.bank_name}
+          {transaction.Bank}
         </Badge>
       </div>
       
       {/* Amount */}
       <div className="font-mono text-sm text-right">
-        {formatAmount(transaction.amount)}
+        {formatAmount(transaction.net_amount)}
       </div>
 
       {/* Running Total (conditional) */}
@@ -324,7 +294,7 @@ const GridTransactionRow = memo(function GridTransactionRow({
       <div>
         <Select 
           value={departmentValue} 
-          onValueChange={(value) => onDepartmentChange(transaction.id, value)}
+          onValueChange={(value) => onDepartmentChange(transaction.content_hash, value)}
         >
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Select..." />
@@ -339,7 +309,7 @@ const GridTransactionRow = memo(function GridTransactionRow({
       
       {/* Transfer Status */}
       <div>
-        {getTransferStatus(transaction)}
+        {getTransferStatus()}
       </div>
       
       {/* Actions */}
@@ -350,7 +320,7 @@ const GridTransactionRow = memo(function GridTransactionRow({
           onClick={() => onLinkTransfer(transaction)}
         >
           <Link className="w-4 h-4 mr-1" />
-          {transaction.transfer_group_id ? 'Edit Link' : 'Link'}
+Link
         </Button>
       </div>
     </div>
@@ -387,21 +357,18 @@ export default function TransactionTable({
       // When showing running total, sort chronologically (newest first)
       return [...transactions].sort((a, b) => {
         // Primary sort: by date (newest first)
-        const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime()
+        const dateComparison = new Date(b.Date).getTime() - new Date(a.Date).getTime()
         if (dateComparison !== 0) {
           return dateComparison
         }
         
-        // Secondary sort: by sequence_number for same-date transactions (highest first)
-        const seqA = a.sequence_number || 0
-        const seqB = b.sequence_number || 0
-        const seqComparison = seqB - seqA
-        if (seqComparison !== 0) {
-          return seqComparison
-        }
+        // Secondary sort: by sort order for same-date transactions (highest first)
+        const sortA = a['Sort Order'] || 0
+        const sortB = b['Sort Order'] || 0
+        return sortB - sortA
         
-        // Tertiary sort: by transaction ID for absolute consistency
-        return b.id.localeCompare(a.id)
+        // Tertiary sort: by content hash for absolute consistency
+        return (b.content_hash || '').localeCompare(a.content_hash || '')
       })
     }
     // Otherwise, keep original order (newest first)
@@ -419,27 +386,27 @@ export default function TransactionTable({
     // Sort chronologically (oldest first) for running total calculation
     const sortedForCalculation = [...transactions].sort((a, b) => {
       // Primary sort: by date (oldest first for running total)
-      const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime()
+      const dateComparison = new Date(a.Date).getTime() - new Date(b.Date).getTime()
       if (dateComparison !== 0) {
         return dateComparison
       }
       
-      // Secondary sort: by sequence_number for same-date transactions (lowest first)
-      const seqA = a.sequence_number || 0
-      const seqB = b.sequence_number || 0
+      // Secondary sort: by sort order for same-date transactions (lowest first)
+      const seqA = a['Sort Order'] || 0
+      const seqB = b['Sort Order'] || 0
       const seqComparison = seqA - seqB
       if (seqComparison !== 0) {
         return seqComparison
       }
       
-      // Tertiary sort: by transaction ID for absolute consistency
-      return a.id.localeCompare(b.id)
+      // Tertiary sort: by content hash for absolute consistency
+      return (a.content_hash || '').localeCompare(b.content_hash || '')
     })
     
     // Calculate running totals chronologically
     sortedForCalculation.forEach(transaction => {
-      runningTotal += transaction.amount
-      totals[transaction.id] = runningTotal
+      runningTotal += transaction.net_amount
+      totals[transaction.content_hash] = runningTotal
     })
     
     return totals
@@ -459,7 +426,7 @@ export default function TransactionTable({
 
   const handleSelectAll = useCallback((checked: boolean) => {
     if (checked) {
-      setSelectedRows(new Set(displayTransactions.map(t => t.id)))
+      setSelectedRows(new Set(displayTransactions.map(t => t.content_hash)))
     } else {
       setSelectedRows(new Set())
     }
@@ -495,13 +462,13 @@ export default function TransactionTable({
     return (
       <GridTransactionRow
         transaction={transaction}
-        isSelected={selectedRows.has(transaction.id)}
+        isSelected={selectedRows.has(transaction.content_hash)}
         onRowSelect={handleRowSelect}
         onDepartmentChange={handleDepartmentChange}
         onLinkTransfer={onLinkTransfer}
-        departmentValue={departmentUpdates[transaction.id] || transaction.source_department || ''}
+        departmentValue={departmentUpdates[transaction.content_hash] || transaction.department || ''}
         departments={departments}
-        runningTotal={runningTotals[transaction.id]}
+        runningTotal={runningTotals[transaction.content_hash]}
         showRunningTotal={showRunningTotal}
         style={style}
         isVirtualized={true}
@@ -602,7 +569,7 @@ export default function TransactionTable({
           {/* Checkbox */}
           <div className="flex justify-center">
             <Checkbox
-              checked={displayTransactions.length > 0 && selectedRows.size === displayTransactions.length}
+              checked={displayTransactions.length > 0 ? selectedRows.size === displayTransactions.length : false}
               onCheckedChange={handleSelectAll}
             />
           </div>

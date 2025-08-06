@@ -1,8 +1,17 @@
 'use client'
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { 
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, FileText, Zap } from 'lucide-react'
+import Link from 'next/link'
+import { Building2, FileText, Zap, Home } from 'lucide-react'
 
 export default function AdminLayout({
   children,
@@ -19,12 +28,45 @@ export default function AdminLayout({
     return 'departments'
   }
 
+  const getCurrentPageName = () => {
+    if (pathname.includes('/departments')) return 'Departments'
+    if (pathname.includes('/rules')) return 'Rules'
+    if (pathname.includes('/sync')) return 'Sync'
+    return 'Departments'
+  }
+
   const handleTabChange = (value: string) => {
     router.push(`/admin/${value === 'departments' ? '' : value}`)
   }
 
   return (
     <div className="container mx-auto py-8 px-4">
+      {/* Breadcrumb Navigation */}
+      <div className="mb-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/" className="flex items-center gap-1">
+                  <Home className="w-4 h-4" />
+                  Dashboard
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/admin">Admin</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{getCurrentPageName()}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
         <p className="text-muted-foreground">

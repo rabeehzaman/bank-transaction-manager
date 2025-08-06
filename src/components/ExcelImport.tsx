@@ -9,8 +9,32 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from '@/components/ui/tooltip'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
+import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Clock, RefreshCw } from 'lucide-react'
+import { 
+  Upload, 
+  FileSpreadsheet, 
+  CheckCircle, 
+  AlertCircle, 
+  Clock, 
+  RefreshCw, 
+  Info, 
+  X
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 interface FileUpload {
@@ -232,37 +256,103 @@ export default function ExcelImport() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* File Upload Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="w-5 h-5" />
-            Excel File Import
-          </CardTitle>
-          <CardDescription>
-            Upload Excel files to the appropriate bank bucket for automatic processing
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Bank Selection */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Select Bank</label>
-            <Select 
-              value={upload.bank} 
-              onValueChange={(value) => setUpload(prev => ({ ...prev, bank: value }))}
-              disabled={upload.uploading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Choose bank for this file" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Rajhi">Rajhi Bank (bank-statements)</SelectItem>
-                <SelectItem value="Ahli">Ahli Bank (ahlighadeer)</SelectItem>
-                <SelectItem value="GIB">GIB Bank (gibbank)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* File Upload Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  Excel File Import
+                </CardTitle>
+                <CardDescription>
+                  Upload Excel files to the appropriate bank bucket for automatic processing
+                </CardDescription>
+              </div>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Info className="w-4 h-4 mr-2" />
+                    Help
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>File Upload Guide</SheetTitle>
+                    <SheetDescription>
+                      Learn how to upload bank statements correctly
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="mt-6 space-y-4">
+                    <div>
+                      <h4 className="font-medium">Supported Banks</h4>
+                      <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                        <li>• <strong>Rajhi Bank:</strong> Uploads to bank-statements bucket</li>
+                        <li>• <strong>Ahli Bank:</strong> Uploads to ahlighadeer bucket</li>
+                        <li>• <strong>GIB Bank:</strong> Uploads to gibbank bucket</li>
+                      </ul>
+                    </div>
+                    <Separator />
+                    <div>
+                      <h4 className="font-medium">File Requirements</h4>
+                      <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                        <li>• File formats: .xlsx, .xls</li>
+                        <li>• Maximum file size: 50MB</li>
+                        <li>• Files are automatically processed after upload</li>
+                        <li>• Duplicate transactions are detected and handled</li>
+                      </ul>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Bank Selection */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Select Bank</label>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="w-4 h-4 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Choose the bank that issued the statement you&apos;re uploading</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Select 
+                value={upload.bank} 
+                onValueChange={(value) => setUpload(prev => ({ ...prev, bank: value }))}
+                disabled={upload.uploading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose bank for this file" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Rajhi">
+                    <div className="flex items-center gap-2">
+                      <span>Rajhi Bank</span>
+                      <Badge variant="outline" className="text-xs">bank-statements</Badge>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="Ahli">
+                    <div className="flex items-center gap-2">
+                      <span>Ahli Bank</span>
+                      <Badge variant="outline" className="text-xs">ahlighadeer</Badge>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="GIB">
+                    <div className="flex items-center gap-2">
+                      <span>GIB Bank</span>
+                      <Badge variant="outline" className="text-xs">gibbank</Badge>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
           {/* File Drop Zone */}
           <div
@@ -275,10 +365,39 @@ export default function ExcelImport() {
             <input {...getInputProps()} />
             <FileSpreadsheet className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             {upload.file ? (
-              <div>
-                <p className="text-sm font-medium">{upload.file.name}</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <span className="text-sm font-medium">File Ready</span>
+                </div>
+                <div className="bg-muted rounded-lg p-4 max-w-sm mx-auto">
+                  <div className="flex items-start justify-between gap-3">
+                    <FileSpreadsheet className="w-8 h-8 text-green-600 flex-shrink-0 mt-1" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" title={upload.file.name}>
+                        {upload.file.name}
+                      </p>
+                      <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                        <span>{(upload.file.size / 1024 / 1024).toFixed(2)} MB</span>
+                        <span>{upload.file.type || 'Excel file'}</span>
+                        <span>{new Date(upload.file.lastModified).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setUpload(prev => ({ ...prev, file: null }))
+                      }}
+                      className="p-1 h-6 w-6"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  {(upload.file.size / 1024 / 1024).toFixed(2)} MB
+                  Click to change file or remove to select a different one
                 </p>
               </div>
             ) : (
@@ -289,6 +408,10 @@ export default function ExcelImport() {
                 <p className="text-xs text-muted-foreground mt-2">
                   or click to select (.xlsx, .xls files only)
                 </p>
+                <div className="flex items-center justify-center gap-2 mt-3">
+                  <Badge variant="outline" className="text-xs">Max 50MB</Badge>
+                  <Badge variant="outline" className="text-xs">Auto-processed</Badge>
+                </div>
               </div>
             )}
           </div>
@@ -419,6 +542,7 @@ export default function ExcelImport() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }
