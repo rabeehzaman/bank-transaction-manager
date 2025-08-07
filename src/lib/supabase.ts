@@ -124,8 +124,19 @@ export const transactionService = {
       }
 
       if (filters?.searchTerm) {
-        const searchTerm = `%${filters.searchTerm}%`
-        query = query.ilike('Description', searchTerm)
+        const searchTerm = filters.searchTerm.trim()
+        
+        // Check if the search term is numeric (for amount searching)
+        const isNumericSearch = /^\d+\.?\d*$/.test(searchTerm)
+        
+        if (isNumericSearch) {
+          const numericValue = parseFloat(searchTerm)
+          // Search only in amount fields: net_amount, Cash In, or Cash Out
+          query = query.or(`net_amount.eq.${numericValue},"Cash In".eq.${numericValue},"Cash Out".eq.${numericValue}`)
+        } else {
+          // Text search in description
+          query = query.ilike('Description', `%${searchTerm}%`)
+        }
       }
 
       // Apply date range filters

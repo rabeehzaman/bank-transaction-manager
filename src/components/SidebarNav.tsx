@@ -18,26 +18,19 @@ import {
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
 import { 
-  Banknote, 
   Database, 
   Upload, 
   Shield, 
   Building2, 
   Settings, 
   RefreshCw,
-  BarChart3,
-  FileText,
   Keyboard
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useKeyboardShortcuts } from '@/components/KeyboardShortcuts'
+import AppIcon from '@/components/AppIcon'
 
 const navigationItems = [
-  {
-    title: 'Dashboard',
-    icon: BarChart3,
-    href: '/',
-  },
   {
     title: 'Transactions',
     icon: Database,
@@ -53,11 +46,6 @@ const navigationItems = [
     icon: Shield,
     href: '/admin',
     subItems: [
-      {
-        title: 'Overview',
-        icon: BarChart3,
-        href: '/admin',
-      },
       {
         title: 'Departments',
         icon: Building2,
@@ -75,11 +63,6 @@ const navigationItems = [
       },
     ],
   },
-  {
-    title: 'Setup',
-    icon: FileText,
-    href: '/setup',
-  },
 ]
 
 export default function SidebarNav() {
@@ -87,9 +70,6 @@ export default function SidebarNav() {
   const { setHelpModalOpen } = useKeyboardShortcuts()
 
   const isActive = (href: string) => {
-    if (href === '/') {
-      return pathname === '/'
-    }
     return pathname.startsWith(href)
   }
 
@@ -97,7 +77,7 @@ export default function SidebarNav() {
     <Sidebar variant="inset" collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-4 py-2">
-          <Banknote className="h-6 w-6" />
+          <AppIcon size={28} variant="solid" className="flex-shrink-0" />
           <span className="font-bold text-lg group-data-[collapsible=icon]:hidden">
             Bank Transaction Manager
           </span>

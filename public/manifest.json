@@ -1,0 +1,47 @@
+{
+  "name": "Bank Transaction Manager",
+  "short_name": "BTM",
+  "description": "Unified interface for managing bank transactions with department assignments and analytics",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10B981",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-simple.svg",
+      "sizes": "32x32",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["finance", "productivity", "business"],
+  "shortcuts": [
+    {
+      "name": "Transactions",
+      "short_name": "Transactions",
+      "description": "View all transactions",
+      "url": "/transactions",
+      "icons": [{ "src": "/icon-simple.svg", "sizes": "32x32" }]
+    },
+    {
+      "name": "Import",
+      "short_name": "Import",
+      "description": "Import bank files",
+      "url": "/import",
+      "icons": [{ "src": "/icon-simple.svg", "sizes": "32x32" }]
+    },
+    {
+      "name": "Admin",
+      "short_name": "Admin",
+      "description": "Admin panel",
+      "url": "/admin",
+      "icons": [{ "src": "/icon-simple.svg", "sizes": "32x32" }]
+    }
+  ]
+}

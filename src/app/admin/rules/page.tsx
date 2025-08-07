@@ -199,6 +199,61 @@ export default function AdminRulesPage() {
           </div>
         )
       
+      case 'date_based':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Start Date (optional)</label>
+                <Input
+                  type="date"
+                  value={typeof formData.conditions.start_date === 'string' ? formData.conditions.start_date : ''}
+                  onChange={(e) => updateConditions('start_date', e.target.value || undefined)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">End Date (optional)</label>
+                <Input
+                  type="date"
+                  value={typeof formData.conditions.end_date === 'string' ? formData.conditions.end_date : ''}
+                  onChange={(e) => updateConditions('end_date', e.target.value || undefined)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Days of Week (optional)</label>
+              <div className="grid grid-cols-7 gap-2">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
+                  const currentDays = Array.isArray(formData.conditions.days_of_week) 
+                    ? formData.conditions.days_of_week as number[]
+                    : []
+                  const isSelected = currentDays.includes(index)
+                  
+                  return (
+                    <Button
+                      key={day}
+                      type="button"
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        const newDays = isSelected 
+                          ? currentDays.filter(d => d !== index)
+                          : [...currentDays, index]
+                        updateConditions('days_of_week', newDays.length > 0 ? newDays : undefined)
+                      }}
+                    >
+                      {day}
+                    </Button>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Select days of the week when this rule should apply
+              </p>
+            </div>
+          </div>
+        )
+      
       default:
         return null
     }
@@ -346,6 +401,7 @@ export default function AdminRulesPage() {
                   <SelectItem value="amount_range">Amount Range</SelectItem>
                   <SelectItem value="bank_specific">Bank Specific</SelectItem>
                   <SelectItem value="reference_pattern">Reference Pattern</SelectItem>
+                  <SelectItem value="date_based">Date Based</SelectItem>
                 </SelectContent>
               </Select>
             </div>

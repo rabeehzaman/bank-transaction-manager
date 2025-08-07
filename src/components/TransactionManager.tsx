@@ -17,6 +17,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { DateRange } from 'react-day-picker'
 import { toast } from 'sonner'
 import { Search, Building2, Banknote, Calendar, Filter, RefreshCw, Loader2 } from 'lucide-react'
+import { syncManager } from '@/lib/sync-manager'
 
 export default function TransactionManager() {
   const [transactions, setTransactions] = useState<FrontendTransaction[]>([])
@@ -115,6 +116,10 @@ export default function TransactionManager() {
 
       if (resetData) {
         setTransactions(result.data)
+        // Cache transactions for offline access
+        if (result.data.length > 0) {
+          syncManager.cacheTransactions(result.data)
+        }
       } else {
         setTransactions(prev => [...prev, ...result.data])
       }
@@ -123,6 +128,21 @@ export default function TransactionManager() {
       setNextCursor(result.pagination.nextCursor)
     } catch (error) {
       console.error('Error loading transactions:', error)
+      
+      // If offline, try to load from cache
+      if (!navigator.onLine && resetData) {
+        try {
+          const cachedTransactions = await syncManager.getCachedTransactions()
+          if (cachedTransactions.length > 0) {
+            setTransactions(cachedTransactions)
+            toast.info('Showing cached data (offline mode)')
+            return
+          }
+        } catch (cacheError) {
+          console.error('Failed to load cached transactions:', cacheError)
+        }
+      }
+      
       toast.error('Failed to load transactions')
       if (resetData) {
         setTransactions([])
@@ -202,6 +222,25 @@ export default function TransactionManager() {
     }
   }, [loadTransactions])
 
+  const handleDepartmentChange = useCallback((
+    transaction: FrontendTransaction, 
+    departmentId: string, 
+    departmentName?: string
+  ) => {
+    // Optimistic update: immediately update the transaction in local state
+    setTransactions(prevTransactions => 
+      prevTransactions.map(t => 
+        t.content_hash === transaction.content_hash 
+          ? { 
+              ...t, 
+              department_id: departmentId === 'unassigned' ? null : departmentId,
+              department: departmentName || 'Unassigned'
+            }
+          : t
+      )
+    )
+  }, [])
+
 
   const handleLinkingComplete = useCallback(() => {
     setIsLinkingModalOpen(false)
@@ -226,16 +265,15 @@ export default function TransactionManager() {
         </TabsList>
 
         <TabsContent value="transactions" className="space-y-6">
-          {/* Enhanced Filters */}
+          {/* Transactions Table with Integrated Filters */}
           <Card>
-            <CardHeader>
+            <CardHeader className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Filter className="w-5 h-5" />
-                  <CardTitle>Filters</CardTitle>
+                  <CardTitle>Transactions</CardTitle>
                   {activeFilterCount > 0 && (
                     <Badge variant="secondary" className="ml-2">
-                      {activeFilterCount} active
+                      {activeFilterCount} filters
                     </Badge>
                   )}
                 </div>
@@ -250,64 +288,66 @@ export default function TransactionManager() {
                   </Button>
                 )}
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="search" className="flex items-center gap-2">
-                    <Search className="w-4 h-4" />
-                    Search
-                  </Label>
-                  <Input
-                    id="search"
-                    placeholder="Description, amount, reference..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full"
-                    aria-describedby="search-help"
-                    autoComplete="off"
-                  />
-                  <p id="search-help" className="sr-only">
-                    Search transactions by description, amount, or reference number
-                  </p>
+              
+              {/* Integrated Filters */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="search" className="flex items-center gap-2">
+                      <Search className="w-4 h-4" />
+                      Search
+                    </Label>
+                    <Input
+                      id="search"
+                      placeholder="Search description or amount (1000, 500.50)..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full"
+                      aria-describedby="search-help"
+                      autoComplete="off"
+                    />
+                    <p id="search-help" className="sr-only">
+                      Search transactions by description text or exact amount values. Numbers search only amounts, text searches descriptions.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Bank</Label>
+                    <Combobox
+                      options={bankOptions}
+                      value={selectedBank}
+                      onValueChange={setSelectedBank}
+                      placeholder="Select bank"
+                      searchPlaceholder="Search banks..."
+                      emptyText="No banks found."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Department</Label>
+                    <Combobox
+                      options={departmentOptions}
+                      value={selectedDepartment}
+                      onValueChange={setSelectedDepartment}
+                      placeholder="Select department"
+                      searchPlaceholder="Search departments..."
+                      emptyText="No departments found."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Transfer Status</Label>
+                    <Combobox
+                      options={statusOptions}
+                      value={linkingStatus}
+                      onValueChange={setLinkingStatus}
+                      placeholder="Select status"
+                      searchPlaceholder="Search status..."
+                      emptyText="No status found."
+                    />
+                  </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label>Bank</Label>
-                  <Combobox
-                    options={bankOptions}
-                    value={selectedBank}
-                    onValueChange={setSelectedBank}
-                    placeholder="Select bank"
-                    searchPlaceholder="Search banks..."
-                    emptyText="No banks found."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Department</Label>
-                  <Combobox
-                    options={departmentOptions}
-                    value={selectedDepartment}
-                    onValueChange={setSelectedDepartment}
-                    placeholder="Select department"
-                    searchPlaceholder="Search departments..."
-                    emptyText="No departments found."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Transfer Status</Label>
-                  <Combobox
-                    options={statusOptions}
-                    value={linkingStatus}
-                    onValueChange={setLinkingStatus}
-                    placeholder="Select status"
-                    searchPlaceholder="Search status..."
-                    emptyText="No status found."
-                  />
-                </div>
-
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
@@ -344,34 +384,15 @@ export default function TransactionManager() {
                     <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                     Refresh
                   </Button>
-                  {hasMore && (
-                    <Button 
-                      onClick={loadMoreTransactions}
-                      disabled={loadingMore}
-                      size="sm"
-                    >
-                      {loadingMore ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Loading...
-                        </>
-                      ) : (
-                        'Load More'
-                      )}
-                    </Button>
-                  )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Transactions Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Transactions</CardTitle>
             </CardHeader>
             <CardContent>
-              <TransactionTableNew />
+              <TransactionTableNew 
+                transactions={transactions}
+                loading={loading}
+                onDepartmentChange={handleDepartmentChange}
+              />
               
               {/* Load More Button at bottom of table */}
               {hasMore && !loading && (

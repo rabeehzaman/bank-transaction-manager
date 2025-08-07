@@ -105,6 +105,142 @@ export const departmentService = {
   }
 }
 
+// Auto-sync configuration interfaces
+export interface AutoSyncConfig {
+  id: string
+  enabled: boolean
+  created_at: string
+  updated_at: string
+  updated_by: string | null
+}
+
+export interface AutoSyncStats {
+  total_applications: number
+  successful_applications: number
+  failed_applications: number
+  last_application: string | null
+  most_used_rule: string | null
+}
+
+export interface AutoSyncLog {
+  id: string
+  transaction_hash: string
+  rule_id: string | null
+  rule_name: string | null
+  department_id: string | null
+  department_name: string | null
+  applied_at: string
+  success: boolean
+  error_message: string | null
+}
+
+// Auto-sync service
+export const autoSyncService = {
+  async getConfig(): Promise<AutoSyncConfig | null> {
+    if (!supabase) return null
+    
+    try {
+      const { data, error } = await supabase
+        .from('auto_sync_config')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (error) {
+        // Don't log error for missing table - this is expected before migration
+        if (error.code !== 'PGRST116' && !error.message.includes('relation "auto_sync_config" does not exist')) {
+          console.error('Error fetching auto-sync config:', error)
+        }
+        return null
+      }
+      
+      return data
+    } catch {
+      // Suppress errors for missing tables
+      return null
+    }
+  },
+
+  async enableAutoSync(): Promise<boolean> {
+    if (!supabase) return false
+    
+    try {
+      const { error } = await supabase.rpc('enable_auto_sync')
+      
+      if (error) {
+        console.error('Error enabling auto-sync:', error)
+        return false
+      }
+      
+      return true
+    } catch {
+      return false
+    }
+  },
+
+  async disableAutoSync(): Promise<boolean> {
+    if (!supabase) return false
+    
+    try {
+      const { error } = await supabase.rpc('disable_auto_sync')
+      
+      if (error) {
+        console.error('Error disabling auto-sync:', error)
+        return false
+      }
+      
+      return true
+    } catch {
+      return false
+    }
+  },
+
+  async getStats(): Promise<AutoSyncStats | null> {
+    if (!supabase) return null
+    
+    try {
+      const { data, error } = await supabase.rpc('get_auto_sync_stats')
+      
+      if (error) {
+        // Don't log error for missing function - this is expected before migration
+        if (!error.message.includes('function get_auto_sync_stats() does not exist')) {
+          console.error('Error fetching auto-sync stats:', error)
+        }
+        return null
+      }
+      
+      return data?.[0] || null
+    } catch {
+      return null
+    }
+  },
+
+  async getLogs(limit: number = 50): Promise<AutoSyncLog[]> {
+    if (!supabase) return []
+    
+    try {
+      const { data, error } = await supabase
+        .from('auto_sync_log')
+        .select('*')
+        .order('applied_at', { ascending: false })
+        .limit(limit)
+      
+      if (error) {
+        // Don't log error for missing table - this is expected before migration
+        if (!error.message.includes('relation "auto_sync_log" does not exist')) {
+          console.error('Error fetching auto-sync logs:', error)
+        }
+        return []
+      }
+      
+      return data || []
+    } catch {
+      return []
+    }
+  }
+}
+
 export const ruleService = {
   async getAllRules(): Promise<DepartmentRule[]> {
     if (!supabase) return []
@@ -178,7 +314,8 @@ export const ruleService = {
           if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
             return false
           }
-          const searchText = `${transactionSample.description || ''} ${transactionSample.reference || ''}`.toLowerCase()
+          // Match transaction field names from FrontendTransaction interface
+          const searchText = `${transactionSample.Description || ''} ${transactionSample.reference || ''}`.toLowerCase()
           return keywords.some(keyword => keyword && searchText.includes(keyword.toLowerCase()))
         
         case 'amount_range':
@@ -186,7 +323,8 @@ export const ruleService = {
           if (typeof min !== 'number' || typeof max !== 'number') {
             return false
           }
-          const amount = Math.abs(transactionSample.amount as number)
+          // Use net_amount which is the actual field in FrontendTransaction
+          const amount = Math.abs(transactionSample.net_amount as number)
           if (isNaN(amount)) {
             return false
           }
@@ -197,7 +335,8 @@ export const ruleService = {
           if (!bankName) {
             return false
           }
-          return transactionSample.bank_name === bankName
+          // Match Bank field from FrontendTransaction interface
+          return transactionSample.Bank === bankName
         
         case 'reference_pattern':
           const patternStr = rule.conditions.pattern as string
@@ -206,14 +345,29 @@ export const ruleService = {
           }
           try {
             const pattern = new RegExp(patternStr, 'i')
-            return pattern.test((transactionSample.reference as string) || '')
+            // Check both Description and other potential reference fields
+            const referenceText = (transactionSample.Description as string) || (transactionSample.reference as string) || ''
+            return pattern.test(referenceText)
           } catch {
             return false
           }
         
         case 'date_based':
-          // Implement date-based logic
-          return false
+          // Implement date-based logic using Date field from FrontendTransaction
+          const dateConditions = rule.conditions as { start_date?: string; end_date?: string; days_of_week?: number[] }
+          const transactionDate = new Date(transactionSample.Date as string)
+          
+          if (dateConditions.start_date && new Date(dateConditions.start_date) > transactionDate) {
+            return false
+          }
+          if (dateConditions.end_date && new Date(dateConditions.end_date) < transactionDate) {
+            return false
+          }
+          if (dateConditions.days_of_week && !dateConditions.days_of_week.includes(transactionDate.getDay())) {
+            return false
+          }
+          
+          return true
         
         default:
           return false

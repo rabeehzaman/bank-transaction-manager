@@ -14,8 +14,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   HoverCard,
@@ -36,8 +34,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
-import { Search, Filter, ChevronDown, MoreHorizontal, ArrowUpDown, Eye, Edit, Link } from 'lucide-react'
+import { MoreHorizontal, ArrowUpDown, Eye, Edit, Link } from 'lucide-react'
 import { toast } from 'sonner'
 import { 
   FrontendTransaction, 
@@ -45,66 +42,44 @@ import {
   transactionService, 
   departmentService 
 } from '@/lib/supabase'
+import { syncManager } from '@/lib/sync-manager'
 
-interface TransactionFilters {
-  bank: string
-  department: string
-  searchTerm: string
-  dateFrom: string
-  dateTo: string
-}
 
 type SortField = 'date' | 'description' | 'amount' | 'bank' | 'department'
 type SortOrder = 'asc' | 'desc'
 
-interface PaginationState {
-  currentPage: number
-  itemsPerPage: number
-  totalItems: number
+
+interface TransactionTableNewProps {
+  transactions: FrontendTransaction[]
+  loading: boolean
+  onDepartmentChange?: (transaction: FrontendTransaction, departmentId: string, departmentName?: string) => void
 }
 
-export default function TransactionTableNew() {
-  const [transactions, setTransactions] = useState<FrontendTransaction[]>([])
+export default function TransactionTableNew({ 
+  transactions: propTransactions, 
+  loading: propLoading,
+  onDepartmentChange
+}: TransactionTableNewProps) {
   const [departments, setDepartments] = useState<Department[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState<TransactionFilters>({
-    bank: 'all',
-    department: 'all',
-    searchTerm: '',
-    dateFrom: '',
-    dateTo: ''
-  })
+  const transactions = propTransactions
+  const loading = propLoading
   const [sortField, setSortField] = useState<SortField>('date')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
-  const [pagination, setPagination] = useState<PaginationState>({
-    currentPage: 1,
-    itemsPerPage: 50,
-    totalItems: 0
-  })
-  const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false)
 
   // Load transactions and departments
-  const loadData = useCallback(async () => {
+  const loadDepartments = useCallback(async () => {
     try {
-      setLoading(true)
-      const [transactionsData, departmentsData] = await Promise.all([
-        transactionService.getAllTransactions(),
-        departmentService.getAllDepartments()
-      ])
-      
-      setTransactions(transactionsData)
+      const departmentsData = await departmentService.getAllDepartments()
       setDepartments(departmentsData)
     } catch (error) {
-      console.error('Error loading data:', error)
-      toast.error('Failed to load data')
-    } finally {
-      setLoading(false)
+      console.error('Error loading departments:', error)
+      toast.error('Failed to load departments')
     }
   }, [])
 
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    loadDepartments()
+  }, [loadDepartments])
 
   // Sort transactions
   const handleSort = (field: SortField) => {
@@ -116,42 +91,19 @@ export default function TransactionTableNew() {
     }
   }
 
-  // Enhanced filter and sort logic with pagination
-  const { filteredTransactions, paginatedTransactions, totalItems } = useMemo(() => {
-    // Filter transactions
-    const filtered = transactions.filter(transaction => {
-      if (filters.bank !== 'all' && transaction.Bank !== filters.bank) {
-        return false
+  // Sort logic
+  const { filteredTransactions, sortedTransactions, totalItems } = useMemo(() => {
+    // Ensure transactions is an array before processing
+    if (!transactions || !Array.isArray(transactions)) {
+      return {
+        filteredTransactions: [],
+        sortedTransactions: [],
+        totalItems: 0
       }
-      
-      if (filters.department !== 'all') {
-        if (filters.department === 'Unassigned' && transaction.department !== 'Unassigned') {
-          return false
-        } else if (filters.department !== 'Unassigned' && transaction.department !== filters.department) {
-          return false
-        }
-      }
+    }
 
-      if (filters.searchTerm) {
-        const searchLower = filters.searchTerm.toLowerCase()
-        return transaction.Description.toLowerCase().includes(searchLower) ||
-               transaction.Bank.toLowerCase().includes(searchLower) ||
-               (transaction.department || '').toLowerCase().includes(searchLower)
-      }
-
-      if (filters.dateFrom && new Date(transaction.Date) < new Date(filters.dateFrom)) {
-        return false
-      }
-
-      if (filters.dateTo && new Date(transaction.Date) > new Date(filters.dateTo)) {
-        return false
-      }
-
-      return true
-    })
-
-    // Sort transactions
-    filtered.sort((a, b) => {
+    // Sort transactions (transactions are already filtered by parent)
+    const sorted = [...transactions].sort((a, b) => {
       let comparison = 0
       
       switch (sortField) {
@@ -175,25 +127,35 @@ export default function TransactionTableNew() {
       return sortOrder === 'asc' ? comparison : -comparison
     })
 
-    // Paginate results
-    const startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage
-    const endIndex = startIndex + pagination.itemsPerPage
-    const paginated = filtered.slice(startIndex, endIndex)
-
     return {
-      filteredTransactions: filtered,
-      paginatedTransactions: paginated,
-      totalItems: filtered.length
+      filteredTransactions: sorted,
+      sortedTransactions: sorted,
+      totalItems: sorted.length
     }
-  }, [transactions, filters, sortField, sortOrder, pagination.currentPage, pagination.itemsPerPage])
+  }, [transactions, sortField, sortOrder])
 
-  // Update pagination when filtered results change
-  useEffect(() => {
-    setPagination(prev => ({ ...prev, totalItems, currentPage: 1 }))
-  }, [totalItems])
 
   // Assign department to transaction
   const handleDepartmentAssign = async (transaction: FrontendTransaction, departmentId: string) => {
+    // Find department name for optimistic update
+    const department = departments.find(d => d.id === departmentId)
+    const departmentName = department?.name || 'Unknown'
+    
+    // Optimistic update: notify parent immediately
+    onDepartmentChange?.(transaction, departmentId, departmentName)
+    
+    // Check if online
+    if (!navigator.onLine) {
+      // Queue for offline sync
+      await syncManager.queueDepartmentAssignment(
+        transaction.content_hash,
+        departmentId,
+        departmentName
+      )
+      toast.info('Department assignment queued for sync')
+      return
+    }
+    
     try {
       await transactionService.assignDepartment(
         transaction.Bank,
@@ -204,22 +166,43 @@ export default function TransactionTableNew() {
       )
       
       toast.success('Department assigned successfully')
-      await loadData() // Reload data to show changes
     } catch (error) {
       console.error('Error assigning department:', error)
-      toast.error('Failed to assign department')
+      
+      // If network error, queue for offline sync
+      if (error instanceof Error && error.message.includes('network')) {
+        await syncManager.queueDepartmentAssignment(
+          transaction.content_hash,
+          departmentId,
+          departmentName
+        )
+        toast.warning('Offline: Department assignment will sync when online')
+      } else {
+        toast.error('Failed to assign department')
+        // Rollback: revert to original state
+        onDepartmentChange?.(transaction, transaction.department_id || 'unassigned', transaction.department)
+      }
     }
   }
 
   // Remove department assignment
   const handleDepartmentRemove = async (transaction: FrontendTransaction) => {
+    // Store original values for potential rollback
+    const originalDepartmentId = transaction.department_id
+    const originalDepartmentName = transaction.department
+    
+    // Optimistic update: notify parent immediately
+    onDepartmentChange?.(transaction, 'unassigned', 'Unassigned')
+    
     try {
       await transactionService.removeDepartment(transaction.content_hash)
       toast.success('Department assignment removed')
-      await loadData() // Reload data to show changes
     } catch (error) {
       console.error('Error removing department:', error)
       toast.error('Failed to remove department assignment')
+      
+      // Rollback: revert to original state
+      onDepartmentChange?.(transaction, originalDepartmentId || 'unassigned', originalDepartmentName)
     }
   }
 
@@ -250,234 +233,41 @@ export default function TransactionTableNew() {
     return stats
   }, [departments, filteredTransactions])
 
-  const totalPages = Math.ceil(totalItems / pagination.itemsPerPage)
-
-  const handlePageChange = (page: number) => {
-    setPagination(prev => ({ ...prev, currentPage: page }))
-  }
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        {/* Stats Cards Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-3">
-                <Skeleton className="h-4 w-32" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-24" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Filters Skeleton */}
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-16" />
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Table Skeleton */}
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-32" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="flex space-x-4">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-16" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+              <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+              <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+              <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+              <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+              <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: 10 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                <TableCell><Skeleton className="h-8 w-32" /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Transactions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalItems}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Showing {paginatedTransactions.length} of {totalItems}
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Cash In</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(filteredTransactions.reduce((sum, t) => sum + (t['Cash In'] || 0), 0))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Cash Out</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(filteredTransactions.reduce((sum, t) => sum + (t['Cash Out'] || 0), 0))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Banks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">5</div>
-            <div className="text-xs text-muted-foreground">Ahli, Rajhi, GIB, Riyad, Alinma</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filters
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAdvancedSearchOpen(!isAdvancedSearchOpen)}
-              >
-                Advanced Search
-                <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${isAdvancedSearchOpen ? 'rotate-180' : ''}`} />
-              </Button>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {/* Enhanced Search */}
-            <div className="relative md:col-span-2">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search descriptions, amounts, banks..."
-                value={filters.searchTerm}
-                onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
-                className="pl-10"
-              />
-            </div>
-
-            {/* Bank Filter */}
-            <Select value={filters.bank} onValueChange={(value) => setFilters(prev => ({ ...prev, bank: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Banks" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Banks</SelectItem>
-                <SelectItem value="Ahli">Ahli</SelectItem>
-                <SelectItem value="Rajhi">Rajhi</SelectItem>
-                <SelectItem value="GIB">GIB</SelectItem>
-                <SelectItem value="Riyad">Riyad</SelectItem>
-                <SelectItem value="Alinma">Alinma</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Department Filter */}
-            <Select value={filters.department} onValueChange={(value) => setFilters(prev => ({ ...prev, department: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Departments" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Departments</SelectItem>
-                <SelectItem value="Unassigned">Unassigned ({departmentStats['Unassigned'] || 0})</SelectItem>
-                {departments.map(dept => (
-                  <SelectItem key={dept.id} value={dept.name}>
-                    {dept.name} ({departmentStats[dept.name] || 0})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Date From */}
-            <Input
-              type="date"
-              placeholder="From date"
-              value={filters.dateFrom}
-              onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-            />
-
-            {/* Date To */}
-            <Input
-              type="date"
-              placeholder="To date"
-              value={filters.dateTo}
-              onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Transactions Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                Transactions ({totalItems})
-                <Badge variant="secondary">{paginatedTransactions.length} visible</Badge>
-              </CardTitle>
-              <CardDescription>
-                Bank transactions with department assignments • Page {pagination.currentPage} of {totalPages}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Select 
-                value={pagination.itemsPerPage.toString()} 
-                onValueChange={(value) => setPagination(prev => ({ ...prev, itemsPerPage: Number(value), currentPage: 1 }))}
-              >
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                  <SelectItem value="200">200</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="border rounded-md">
-            <ScrollArea className="h-[600px]">
-              <Table>
+    <div className="border rounded-md">
+      <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>
@@ -536,18 +326,17 @@ export default function TransactionTableNew() {
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
-                    <TableHead className="w-[50px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedTransactions.length === 0 ? (
+                  {sortedTransactions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No transactions found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    paginatedTransactions.map((transaction, index) => (
+                    sortedTransactions.map((transaction, index) => (
                       <ContextMenu key={index}>
                         <ContextMenuTrigger asChild>
                           <TableRow className="hover:bg-muted/50 cursor-pointer">
@@ -612,61 +401,28 @@ export default function TransactionTableNew() {
                               <Badge variant="secondary">{transaction.Bank}</Badge>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Select 
-                                  value={transaction.department_id || 'unassigned'} 
-                                  onValueChange={(value) => {
-                                    if (value === 'unassigned') {
-                                      handleDepartmentRemove(transaction)
-                                    } else {
-                                      handleDepartmentAssign(transaction, value)
-                                    }
-                                  }}
-                                >
-                                  <SelectTrigger className="w-36">
-                                    <SelectValue placeholder="Select department" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                                    {departments.map(dept => (
-                                      <SelectItem key={dept.id} value={dept.id}>
-                                        {dept.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                {transaction.department !== 'Unassigned' && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {transaction.department}
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">Open menu</span>
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuItem>
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    View Details
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <Link className="mr-2 h-4 w-4" />
-                                    Link Transfer
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem>
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              <Select 
+                                value={transaction.department_id || 'unassigned'} 
+                                onValueChange={(value) => {
+                                  if (value === 'unassigned') {
+                                    handleDepartmentRemove(transaction)
+                                  } else {
+                                    handleDepartmentAssign(transaction, value)
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="w-36">
+                                  <SelectValue placeholder="Select department" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                                  {departments.map(dept => (
+                                    <SelectItem key={dept.id} value={dept.id}>
+                                      {dept.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </TableCell>
                           </TableRow>
                         </ContextMenuTrigger>
@@ -688,54 +444,7 @@ export default function TransactionTableNew() {
                     ))
                 )}
               </TableBody>
-            </Table>
-            </ScrollArea>
-          </div>
-          
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-2 py-4">
-              <div className="text-sm text-muted-foreground">
-                Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to {Math.min(pagination.currentPage * pagination.itemsPerPage, totalItems)} of {totalItems} results
-              </div>
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => handlePageChange(Math.max(1, pagination.currentPage - 1))}
-                      className={pagination.currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                    />
-                  </PaginationItem>
-                  
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const startPage = Math.max(1, Math.min(pagination.currentPage - 2, totalPages - 4))
-                    const pageNum = startPage + i
-                    
-                    return (
-                      <PaginationItem key={pageNum}>
-                        <PaginationLink
-                          onClick={() => handlePageChange(pageNum)}
-                          isActive={pagination.currentPage === pageNum}
-                          className="cursor-pointer"
-                        >
-                          {pageNum}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  })}
-                  
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() => handlePageChange(Math.min(totalPages, pagination.currentPage + 1))}
-                      className={pagination.currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      </Table>
     </div>
   )
 }

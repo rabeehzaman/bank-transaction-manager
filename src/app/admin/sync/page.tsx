@@ -6,10 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Switch } from '@/components/ui/switch'
+import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
-import { Zap, Play, RotateCcw, CheckCircle, AlertCircle, Clock } from 'lucide-react'
-import { ruleService, DepartmentRule } from '@/lib/supabase-admin'
+import { Zap, Play, RotateCcw, CheckCircle, AlertCircle, Clock, Settings, Activity } from 'lucide-react'
+import { ruleService, DepartmentRule, autoSyncService, AutoSyncConfig, AutoSyncStats } from '@/lib/supabase-admin'
 import { transactionService, departmentService, Department } from '@/lib/supabase'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 interface SyncProgress {
   total: number
@@ -33,6 +36,10 @@ export default function AdminSyncPage() {
     rules_applied: number
     timestamp: string
   } | null>(null)
+  const [autoSyncConfig, setAutoSyncConfig] = useState<AutoSyncConfig | null>(null)
+  const [autoSyncStats, setAutoSyncStats] = useState<AutoSyncStats | null>(null)
+  const [autoSyncLoading, setAutoSyncLoading] = useState(false)
+  const [migrationApplied, setMigrationApplied] = useState(true)
 
   useEffect(() => {
     loadData()
@@ -46,10 +53,53 @@ export default function AdminSyncPage() {
       ])
       setRules(rulesData.filter(r => r.is_active))
       setDepartments(departmentsData)
+
+      // Load auto-sync data separately with error handling
+      try {
+        const [autoConfig, autoStats] = await Promise.all([
+          autoSyncService.getConfig(),
+          autoSyncService.getStats()
+        ])
+        setAutoSyncConfig(autoConfig)
+        setAutoSyncStats(autoStats)
+      } catch {
+        console.log('Auto-sync features not available - migration may not be applied yet')
+        // Set default values so UI doesn't break
+        setAutoSyncConfig(null)
+        setAutoSyncStats(null)
+        setMigrationApplied(false)
+      }
     } catch {
       toast.error('Failed to load data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleAutoSyncToggle = async (enabled: boolean) => {
+    if (!migrationApplied) {
+      toast.error('Please apply the database migration first')
+      return
+    }
+    
+    setAutoSyncLoading(true)
+    try {
+      const success = enabled 
+        ? await autoSyncService.enableAutoSync()
+        : await autoSyncService.disableAutoSync()
+      
+      if (success) {
+        toast.success(`Auto-sync ${enabled ? 'enabled' : 'disabled'} successfully`)
+        // Reload config
+        const newConfig = await autoSyncService.getConfig()
+        setAutoSyncConfig(newConfig)
+      } else {
+        toast.error(`Failed to ${enabled ? 'enable' : 'disable'} auto-sync`)
+      }
+    } catch {
+      toast.error(`Failed to ${enabled ? 'enable' : 'disable'} auto-sync`)
+    } finally {
+      setAutoSyncLoading(false)
     }
   }
 
@@ -189,17 +239,122 @@ export default function AdminSyncPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <ErrorBoundary>
+      <div className="space-y-6">
+      {/* Auto-Sync Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Automatic Sync Configuration
+              </CardTitle>
+              <CardDescription>
+                Configure automatic rule application for new transactions
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {!migrationApplied ? (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Auto-sync not available:</strong> The database migration needs to be applied first. 
+                Please run <code className="bg-muted px-1 rounded">supabase db push</code> or apply the migration manually. 
+                See <code>AUTO_SYNC_SETUP.md</code> for detailed instructions.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              {/* Auto-sync toggle */}
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-1">
+                  <h3 className="font-medium">Enable Automatic Sync</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically apply department rules to new transactions as they are added
+                  </p>
+                </div>
+                <Switch
+                  checked={autoSyncConfig?.enabled || false}
+                  onCheckedChange={handleAutoSyncToggle}
+                  disabled={autoSyncLoading || !migrationApplied}
+                />
+              </div>
+
+              {/* Auto-sync statistics */}
+              {autoSyncStats && (
+                <div>
+                  <h3 className="font-medium mb-3">Auto-Sync Statistics</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-3 border rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {autoSyncStats.total_applications}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Total Applications</div>
+                    </div>
+                    <div className="text-center p-3 border rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">
+                        {autoSyncStats.successful_applications}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Successful</div>
+                    </div>
+                    <div className="text-center p-3 border rounded-lg">
+                      <div className="text-2xl font-bold text-red-600">
+                        {autoSyncStats.failed_applications}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Failed</div>
+                    </div>
+                    <div className="text-center p-3 border rounded-lg">
+                      <div className="text-sm font-medium">
+                        {autoSyncStats.last_application 
+                          ? new Date(autoSyncStats.last_application).toLocaleString()
+                          : 'Never'
+                        }
+                      </div>
+                      <div className="text-sm text-muted-foreground">Last Application</div>
+                    </div>
+                  </div>
+                  {autoSyncStats.most_used_rule && (
+                    <div className="mt-4 p-3 bg-muted rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4" />
+                        <span className="text-sm font-medium">Most Used Rule:</span>
+                        <Badge variant="outline">{autoSyncStats.most_used_rule}</Badge>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Important note */}
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Auto-sync behavior:</strong> Rules are automatically applied to new transactions 
+                  and existing transactions without department assignments. Manual department assignments 
+                  are always preserved and never overwritten.
+                </AlertDescription>
+              </Alert>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Manual Sync Section */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="w-5 h-5" />
-                Rule Synchronization
+                Manual Rule Synchronization
               </CardTitle>
               <CardDescription>
-                Apply department assignment rules to all transactions
+                Manually apply department assignment rules to all transactions
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -322,6 +477,7 @@ export default function AdminSyncPage() {
           </Alert>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }

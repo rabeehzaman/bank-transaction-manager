@@ -59,9 +59,11 @@ interface ProcessingLog {
 }
 
 const BANK_BUCKETS = {
-  'Rajhi': 'bank-statements',
-  'Ahli': 'ahlighadeer', 
-  'GIB': 'gibbank'
+  'Rajhi': 'rajhi-bank-files',
+  'Ahli': 'ahli-bank-files', 
+  'GIB': 'gib-bank-files',
+  'Alinma': 'alinma-bank-files',
+  'Riyad': 'riyad-bank-files'
 } as const
 
 export default function ExcelImport() {
@@ -289,9 +291,11 @@ export default function ExcelImport() {
                     <div>
                       <h4 className="font-medium">Supported Banks</h4>
                       <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                        <li>• <strong>Rajhi Bank:</strong> Uploads to bank-statements bucket</li>
-                        <li>• <strong>Ahli Bank:</strong> Uploads to ahlighadeer bucket</li>
-                        <li>• <strong>GIB Bank:</strong> Uploads to gibbank bucket</li>
+                        <li>• <strong>Rajhi Bank:</strong> Uploads to rajhi-bank-files bucket</li>
+                        <li>• <strong>Ahli Bank:</strong> Uploads to ahli-bank-files bucket</li>
+                        <li>• <strong>GIB Bank:</strong> Uploads to gib-bank-files bucket</li>
+                        <li>• <strong>Alinma Bank:</strong> Uploads to alinma-bank-files bucket</li>
+                        <li>• <strong>Riyad Bank:</strong> Uploads to riyad-bank-files bucket</li>
                       </ul>
                     </div>
                     <Separator />
@@ -335,19 +339,31 @@ export default function ExcelImport() {
                   <SelectItem value="Rajhi">
                     <div className="flex items-center gap-2">
                       <span>Rajhi Bank</span>
-                      <Badge variant="outline" className="text-xs">bank-statements</Badge>
+                      <Badge variant="outline" className="text-xs">rajhi-bank-files</Badge>
                     </div>
                   </SelectItem>
                   <SelectItem value="Ahli">
                     <div className="flex items-center gap-2">
                       <span>Ahli Bank</span>
-                      <Badge variant="outline" className="text-xs">ahlighadeer</Badge>
+                      <Badge variant="outline" className="text-xs">ahli-bank-files</Badge>
                     </div>
                   </SelectItem>
                   <SelectItem value="GIB">
                     <div className="flex items-center gap-2">
                       <span>GIB Bank</span>
-                      <Badge variant="outline" className="text-xs">gibbank</Badge>
+                      <Badge variant="outline" className="text-xs">gib-bank-files</Badge>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="Alinma">
+                    <div className="flex items-center gap-2">
+                      <span>Alinma Bank</span>
+                      <Badge variant="outline" className="text-xs">alinma-bank-files</Badge>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="Riyad">
+                    <div className="flex items-center gap-2">
+                      <span>Riyad Bank</span>
+                      <Badge variant="outline" className="text-xs">riyad-bank-files</Badge>
                     </div>
                   </SelectItem>
                 </SelectContent>
