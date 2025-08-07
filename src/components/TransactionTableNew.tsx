@@ -13,28 +13,32 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { MoreHorizontal, ArrowUpDown, Eye, Edit, Link } from 'lucide-react'
+import { 
+  ArrowUpDown, 
+  Eye, 
+  Edit, 
+  Link,
+  Calendar,
+  Building2,
+  CreditCard,
+  DollarSign,
+  Hash,
+  Tag
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { 
   FrontendTransaction, 
@@ -65,6 +69,8 @@ export default function TransactionTableNew({
   const loading = propLoading
   const [sortField, setSortField] = useState<SortField>('date')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+  const [selectedTransaction, setSelectedTransaction] = useState<FrontendTransaction | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   // Load transactions and departments
   const loadDepartments = useCallback(async () => {
@@ -92,7 +98,7 @@ export default function TransactionTableNew({
   }
 
   // Sort logic
-  const { filteredTransactions, sortedTransactions, totalItems } = useMemo(() => {
+  const { filteredTransactions, sortedTransactions, totalItems: _totalItems } = useMemo(() => {
     // Ensure transactions is an array before processing
     if (!transactions || !Array.isArray(transactions)) {
       return {
@@ -216,7 +222,7 @@ export default function TransactionTableNew({
   }
 
   // Get department stats (use all filtered transactions, not just paginated)
-  const departmentStats = useMemo(() => {
+  const _departmentStats = useMemo(() => {
     const stats = departments.reduce((acc, dept) => {
       const count = filteredTransactions.filter(t => t.department === dept.name).length
       if (count > 0) {
@@ -232,6 +238,12 @@ export default function TransactionTableNew({
 
     return stats
   }, [departments, filteredTransactions])
+
+  // Handle transaction click to show details
+  const handleTransactionClick = (transaction: FrontendTransaction) => {
+    setSelectedTransaction(transaction)
+    setIsDetailsOpen(true)
+  }
 
 
   if (loading) {
@@ -339,49 +351,17 @@ export default function TransactionTableNew({
                     sortedTransactions.map((transaction, index) => (
                       <ContextMenu key={index}>
                         <ContextMenuTrigger asChild>
-                          <TableRow className="hover:bg-muted/50 cursor-pointer">
+                          <TableRow 
+                            className="hover:bg-blue-50 dark:hover:bg-blue-950/20 cursor-pointer transition-all duration-200 hover:scale-[1.01]"
+                            onClick={() => handleTransactionClick(transaction)}
+                          >
                             <TableCell className="font-mono text-sm">
                               {format(new Date(transaction.Date), 'yyyy-MM-dd')}
                             </TableCell>
                             <TableCell className="max-w-xs">
-                              <HoverCard>
-                                <HoverCardTrigger asChild>
-                                  <div className="truncate cursor-pointer hover:text-primary transition-colors">
-                                    {transaction.Description}
-                                  </div>
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-80">
-                                  <div className="space-y-2">
-                                    <h4 className="text-sm font-semibold">Transaction Details</h4>
-                                    <div className="space-y-2 text-sm">
-                                      <div>
-                                        <span className="font-medium text-muted-foreground">Description:</span>
-                                        <p className="mt-1">{transaction.Description}</p>
-                                      </div>
-                                      <div className="flex items-center justify-between">
-                                        <span className="font-medium text-muted-foreground">Date:</span>
-                                        <span>{format(new Date(transaction.Date), 'MMM dd, yyyy')}</span>
-                                      </div>
-                                      <div className="flex items-center justify-between">
-                                        <span className="font-medium text-muted-foreground">Bank:</span>
-                                        <Badge variant="outline">{transaction.Bank}</Badge>
-                                      </div>
-                                      <div className="flex items-center justify-between">
-                                        <span className="font-medium text-muted-foreground">Amount:</span>
-                                        <span className={`font-mono font-medium ${transaction.net_amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                          {transaction.net_amount >= 0 ? '+' : ''}${Math.abs(transaction.net_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                        </span>
-                                      </div>
-                                      {transaction.department && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="font-medium text-muted-foreground">Department:</span>
-                                          <Badge>{transaction.department}</Badge>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </HoverCardContent>
-                              </HoverCard>
+                              <div className="truncate hover:text-primary transition-colors">
+                                {transaction.Description}
+                              </div>
                             </TableCell>
                             <TableCell className="text-right font-mono">
                               {transaction['Cash In'] ? (
@@ -445,6 +425,209 @@ export default function TransactionTableNew({
                 )}
               </TableBody>
       </Table>
+
+      {/* Transaction Details Sheet */}
+      <Sheet open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto p-0">
+          {selectedTransaction && (
+            <div className="p-6">
+              <SheetHeader className="space-y-4 pb-6 border-b">
+                <div className="space-y-2">
+                  <SheetTitle className="text-xl font-semibold">
+                    Transaction Details
+                  </SheetTitle>
+                  <SheetDescription className="text-sm text-muted-foreground">
+                    Review complete transaction information
+                  </SheetDescription>
+                </div>
+                
+                {/* Amount Display */}
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg ${
+                  selectedTransaction.net_amount >= 0 
+                    ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400' 
+                    : 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400'
+                }`}>
+                  <DollarSign className="h-5 w-5" />
+                  <span className="text-2xl font-bold">
+                    {selectedTransaction.net_amount >= 0 ? '+' : ''}
+                    {formatCurrency(Math.abs(selectedTransaction.net_amount))}
+                  </span>
+                </div>
+              </SheetHeader>
+
+              <div className="mt-6 space-y-4">
+                {/* Description Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-primary/10">
+                      <Tag className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <span className="text-sm font-medium">Description</span>
+                  </div>
+                  <div className="pl-9">
+                    <p className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3 leading-relaxed">
+                      {selectedTransaction.Description}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Date & Time */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-primary/10">
+                      <Calendar className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <span className="text-sm font-medium">Date & Time</span>
+                  </div>
+                  <div className="pl-9">
+                    <div className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2.5">
+                      <span className="text-sm text-muted-foreground">Transaction Date</span>
+                      <span className="text-sm font-medium">
+                        {format(new Date(selectedTransaction.Date), 'MMMM dd, yyyy')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Financial Details */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-primary/10">
+                      <DollarSign className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <span className="text-sm font-medium">Financial Details</span>
+                  </div>
+                  <div className="pl-9 space-y-2">
+                    {selectedTransaction['Cash In'] && (
+                      <div className="flex items-center justify-between bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 rounded-lg px-3 py-2.5">
+                        <span className="text-sm font-medium text-green-700 dark:text-green-400">Cash In</span>
+                        <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                          +{formatCurrency(selectedTransaction['Cash In'])}
+                        </span>
+                      </div>
+                    )}
+                    {selectedTransaction['Cash Out'] && (
+                      <div className="flex items-center justify-between bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2.5">
+                        <span className="text-sm font-medium text-red-700 dark:text-red-400">Cash Out</span>
+                        <span className="text-sm font-semibold text-red-700 dark:text-red-400">
+                          -{formatCurrency(selectedTransaction['Cash Out'])}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2.5">
+                      <span className="text-sm text-muted-foreground">Net Amount</span>
+                      <span className={`text-sm font-semibold ${selectedTransaction.net_amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {selectedTransaction.net_amount >= 0 ? '+' : ''}
+                        {formatCurrency(Math.abs(selectedTransaction.net_amount))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bank Information */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-primary/10">
+                      <CreditCard className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <span className="text-sm font-medium">Bank Information</span>
+                  </div>
+                  <div className="pl-9">
+                    <div className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2.5">
+                      <span className="text-sm text-muted-foreground">Bank</span>
+                      <Badge variant="outline" className="font-medium">
+                        {selectedTransaction.Bank}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Department */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-primary/10">
+                      <Building2 className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <span className="text-sm font-medium">Department Assignment</span>
+                  </div>
+                  <div className="pl-9">
+                    <div className="space-y-2">
+                      <Select 
+                        value={selectedTransaction.department_id || 'unassigned'} 
+                        onValueChange={(value) => {
+                          if (value === 'unassigned') {
+                            handleDepartmentRemove(selectedTransaction)
+                          } else {
+                            handleDepartmentAssign(selectedTransaction, value)
+                          }
+                          // Update the selected transaction to reflect the change
+                          setSelectedTransaction({
+                            ...selectedTransaction,
+                            department_id: value === 'unassigned' ? null : value,
+                            department: value === 'unassigned' ? 'Unassigned' : (departments.find(d => d.id === value)?.name || 'Unknown')
+                          })
+                        }}
+                      >
+                        <SelectTrigger className="w-full bg-background">
+                          <SelectValue placeholder="Select department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">
+                            <span className="text-muted-foreground">Unassigned</span>
+                          </SelectItem>
+                          {departments.map(dept => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Click to assign or change the department for this transaction
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metadata */}
+                {selectedTransaction.content_hash && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-md bg-primary/10">
+                        <Hash className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="text-sm font-medium">Transaction ID</span>
+                    </div>
+                    <div className="pl-9">
+                      <div className="bg-muted/30 rounded-lg p-3">
+                        <code className="text-xs font-mono text-muted-foreground break-all">
+                          {selectedTransaction.content_hash}
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-6 mt-6 border-t">
+                <Button
+                  variant="outline"
+                  size="default"
+                  className="w-full"
+                  onClick={() => {
+                    toast.info('Link transfer functionality coming soon')
+                    setIsDetailsOpen(false)
+                  }}
+                >
+                  <Link className="w-4 h-4 mr-2" />
+                  Link Transfer
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

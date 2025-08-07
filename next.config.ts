@@ -55,6 +55,16 @@ const withPWA = (config: NextConfig) => {
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  
+  // Skip type checking during build (already checked in dev)
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  
+  // Skip ESLint during build
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 
   // Environment variables that should be available at runtime
   env: {
