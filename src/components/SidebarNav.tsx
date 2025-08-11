@@ -49,7 +49,7 @@ const navigationItems = [
       {
         title: 'Departments',
         icon: Building2,
-        href: '/admin/departments',
+        href: '/admin',
       },
       {
         title: 'Rules',

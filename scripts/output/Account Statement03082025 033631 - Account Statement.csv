@@ -1,0 +1,55 @@
+transaction_date,description,reference,debit,credit,balance
+2025-02-08,"Incoming Instant Payment
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200GIPS252140509
+Date of Transaction: 02082025
+Time of Transaction: 08:32:20
+Value Date : 02082025
+Amount: 20,000.00
+Currency: SAR
+Charge Amount: 0.00
+VAT Amount :  0.00
+Exchange Rate: 1  
+Remitter Name: GHADEER
+Remitter Account No: SA4820000001011317819940
+Remitter Bank Name: Riyad Bank
+Remitter Bank Ref: 0000000010894672
+Remitter Address: 
+Purpose of Payment  : Bonu",200GIPS252140509,0.0,20000.0,96450.4
+2025-01-08,"Local Transfer
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200TNFT252130004
+Date of Transaction: 01082025
+Time of Transaction: 15:32:42
+Value Date : 01082025
+Amount: 100.00
+Currency: SAR
+Exchange Rate: 1  
+Beneficiary Name: Ministry of Interior - Advanced Traffic Safety Project - Sadad
+Beneficiary Account No.: SA0701100001230401000242
+Detail of payment: Individual transfer
+Purpose of Payment  : Based on Article No. (75) of the Traffic Law for violation No. (6531653934 )
+Reference: 25271048062632-AT",200TNFT252130004,100.0,0.0,76450.4
+2025-01-08,"Incoming Instant Payment
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200GIPS252130021
+Date of Transaction: 01082025
+Time of Transaction: 13:40:27
+Value Date : 01082025
+Amount: 20,000.00
+Currency: SAR
+Charge Amount: 0.00
+VAT Amount :  0.00
+Exchange Rate: 1  
+Remitter Name: GHADEER
+Remitter Account No: SA4820000001011317819940
+Remitter Bank Name: Riyad Bank
+Remitter Bank Ref: 0000000010887310
+Remitter Address: 
+Purpose of Payment  : Bonu",200GIPS252130021,0.0,20000.0,76550.4

@@ -23,8 +23,6 @@ import { FrontendTransaction } from '@/lib/supabase'
 import { 
   TrendingUp, 
   TrendingDown, 
-  Link, 
-  AlertTriangle, 
   PieChart, 
   BarChart3, 
   Calendar,
@@ -54,8 +52,6 @@ interface DepartmentSummary {
   netBalance: number
   transfersIn: number
   transfersOut: number
-  linkedCount: number
-  unlinkedCount: number
 }
 
 const chartConfig = {
@@ -94,8 +90,6 @@ export default function SummaryDashboard({ transactions }: SummaryDashboardProps
           netBalance: 0,
           transfersIn: 0,
           transfersOut: 0,
-          linkedCount: 0,
-          unlinkedCount: 0
         }
       }
       
@@ -110,7 +104,6 @@ export default function SummaryDashboard({ transactions }: SummaryDashboardProps
       }
       
       stats.netBalance = stats.totalIn - stats.totalOut
-      stats.unlinkedCount += 1
       
       // Bank stats
       if (!bankStats[bank]) {
@@ -136,8 +129,6 @@ export default function SummaryDashboard({ transactions }: SummaryDashboardProps
     })
     
     // Calculate totals
-    const linked = 0
-    const unlinked = transactions.length
     const totalIn = transactions.filter(t => t.net_amount > 0).reduce((sum, t) => sum + t.net_amount, 0)
     const totalOut = transactions.filter(t => t.net_amount < 0).reduce((sum, t) => sum + Math.abs(t.net_amount), 0)
     
@@ -146,12 +137,9 @@ export default function SummaryDashboard({ transactions }: SummaryDashboardProps
       bankSummary: Object.values(bankStats).sort((a, b) => (b.totalIn + b.totalOut) - (a.totalIn + a.totalOut)),
       monthlyTrends: Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month)).slice(-6), // Last 6 months
       totals: {
-        linked,
-        unlinked,
         totalIn,
         totalOut,
-        netBalance: totalIn - totalOut,
-        linkingPercentage: transactions.length > 0 ? (linked / transactions.length) * 100 : 0
+        netBalance: totalIn - totalOut
       }
     }
   }, [transactions])
@@ -222,26 +210,6 @@ export default function SummaryDashboard({ transactions }: SummaryDashboardProps
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Linking Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="text-2xl font-bold">
-                {totals.linkingPercentage.toFixed(1)}%
-              </div>
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <Link className="h-3 w-3" />
-                <span>{totals.linked} linked</span>
-                <AlertTriangle className="h-3 w-3 ml-2" />
-                <span>{totals.unlinked} unlinked</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Charts Section */}
@@ -382,7 +350,6 @@ export default function SummaryDashboard({ transactions }: SummaryDashboardProps
                   <TableHead className="text-right">Transfers Out</TableHead>
                   <TableHead className="text-right">Net Balance</TableHead>
                   <TableHead className="text-right">Count In/Out</TableHead>
-                  <TableHead className="text-center">Linking Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -410,20 +377,6 @@ export default function SummaryDashboard({ transactions }: SummaryDashboardProps
                       {dept.transfersIn} / {dept.transfersOut}
                     </TableCell>
                     
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center space-x-2">
-                        <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
-                          <Link className="w-3 h-3 mr-1" />
-                          {dept.linkedCount}
-                        </Badge>
-                        {dept.unlinkedCount > 0 && (
-                          <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs">
-                            <AlertTriangle className="w-3 h-3 mr-1" />
-                            {dept.unlinkedCount}
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

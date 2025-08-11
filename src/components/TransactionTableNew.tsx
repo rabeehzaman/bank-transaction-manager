@@ -31,7 +31,6 @@ import {
   ArrowUpDown, 
   Eye, 
   Edit, 
-  Link,
   Calendar,
   Building2,
   CreditCard,
@@ -412,10 +411,6 @@ export default function TransactionTableNew({
                             View Details
                           </ContextMenuItem>
                           <ContextMenuItem>
-                            <Link className="mr-2 h-4 w-4" />
-                            Link Transfer
-                          </ContextMenuItem>
-                          <ContextMenuItem>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Transaction
                           </ContextMenuItem>
@@ -609,21 +604,6 @@ export default function TransactionTableNew({
                 )}
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-6 mt-6 border-t">
-                <Button
-                  variant="outline"
-                  size="default"
-                  className="w-full"
-                  onClick={() => {
-                    toast.info('Link transfer functionality coming soon')
-                    setIsDetailsOpen(false)
-                  }}
-                >
-                  <Link className="w-4 h-4 mr-2" />
-                  Link Transfer
-                </Button>
-              </div>
             </div>
           )}
         </SheetContent>

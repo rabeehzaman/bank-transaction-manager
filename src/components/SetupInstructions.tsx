@@ -9,18 +9,7 @@ import { Code, Copy, ExternalLink, Database, Key } from 'lucide-react'
 export default function SetupInstructions() {
   const [copiedSQL, setCopiedSQL] = useState(false)
 
-  const sqlScript = `-- Create linked_transfers table for storing transfer group associations
-CREATE TABLE IF NOT EXISTS public.linked_transfers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    transaction_id_1 TEXT NOT NULL,
-    transaction_id_2 TEXT NOT NULL,
-    source_department TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by TEXT,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create transaction_tags table for department assignments
+  const sqlScript = `-- Create transaction_tags table for department assignments
 CREATE TABLE IF NOT EXISTS public.transaction_tags (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     transaction_id TEXT NOT NULL UNIQUE,
@@ -32,14 +21,10 @@ CREATE TABLE IF NOT EXISTS public.transaction_tags (
 );
 
 -- Create indexes
-CREATE INDEX IF NOT EXISTS idx_linked_transfers_transaction_id_1 ON public.linked_transfers(transaction_id_1);
-CREATE INDEX IF NOT EXISTS idx_linked_transfers_transaction_id_2 ON public.linked_transfers(transaction_id_2);
 CREATE INDEX IF NOT EXISTS idx_transaction_tags_transaction_id ON public.transaction_tags(transaction_id);
 
 -- Grant permissions
-GRANT ALL ON public.linked_transfers TO authenticated;
 GRANT ALL ON public.transaction_tags TO authenticated;
-GRANT ALL ON public.linked_transfers TO anon;
 GRANT ALL ON public.transaction_tags TO anon;`
 
   const copySQL = () => {

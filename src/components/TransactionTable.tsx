@@ -12,11 +12,9 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FrontendTransaction, Department } from '@/lib/supabase'
 import { format } from 'date-fns'
-import { Link, AlertTriangle } from 'lucide-react'
 
 interface TransactionTableProps {
   transactions: FrontendTransaction[]
-  onLinkTransfer: (transaction: FrontendTransaction) => void
   onDepartmentUpdate?: (transactionId: string, department: string) => void
   onCategoryUpdate?: (transactionId: string, category: string) => void
   loading: boolean
@@ -31,8 +29,7 @@ const TransactionRow = memo(function TransactionRow({
   transaction, 
   isSelected, 
   onRowSelect, 
-  onDepartmentChange, 
-  onLinkTransfer,
+  onDepartmentChange,
   departmentValue,
   departments,
   runningTotal,
@@ -42,7 +39,6 @@ const TransactionRow = memo(function TransactionRow({
   isSelected: boolean
   onRowSelect: (transactionId: string, checked: boolean) => void
   onDepartmentChange: (transactionId: string, department: string) => void
-  onLinkTransfer: (transaction: FrontendTransaction) => void
   departmentValue: string
   departments: Department[]
   runningTotal?: number
@@ -68,15 +64,6 @@ const TransactionRow = memo(function TransactionRow({
     )
   }
 
-  const getTransferStatus = () => {
-    // Since we don't have transfer linking yet in the new system, all are unlinked
-    return (
-      <Badge variant="outline" className="text-orange-600 border-orange-300">
-        <AlertTriangle className="w-3 h-3 mr-1" />
-        Unlinked
-      </Badge>
-    )
-  }
 
   return (
     <TableRow className={isSelected ? 'bg-muted/50' : ''}>
@@ -149,21 +136,6 @@ const TransactionRow = memo(function TransactionRow({
       </TableCell>
       */}
       
-      <TableCell>
-        {getTransferStatus()}
-      </TableCell>
-      
-      <TableCell className="text-right">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onLinkTransfer(transaction)}
-          className="ml-2"
-        >
-          <Link className="w-4 h-4 mr-1" />
-Link
-        </Button>
-      </TableCell>
     </TableRow>
   )
 }, (prevProps, nextProps) => {
@@ -183,8 +155,7 @@ const GridTransactionRow = memo(function GridTransactionRow({
   transaction, 
   isSelected, 
   onRowSelect, 
-  onDepartmentChange, 
-  onLinkTransfer,
+  onDepartmentChange,
   departmentValue,
   departments,
   runningTotal,
@@ -196,7 +167,6 @@ const GridTransactionRow = memo(function GridTransactionRow({
   isSelected: boolean
   onRowSelect: (transactionId: string, checked: boolean) => void
   onDepartmentChange: (transactionId: string, department: string) => void
-  onLinkTransfer: (transaction: FrontendTransaction) => void
   departmentValue: string
   departments: Department[]
   runningTotal?: number
@@ -224,15 +194,6 @@ const GridTransactionRow = memo(function GridTransactionRow({
     )
   }
 
-  const getTransferStatus = () => {
-    // Since we don't have transfer linking yet in the new system, all are unlinked
-    return (
-      <Badge variant="outline" className="text-orange-600 border-orange-300">
-        <AlertTriangle className="w-3 h-3 mr-1" />
-        Unlinked
-      </Badge>
-    )
-  }
 
   const gridCols = showRunningTotal 
     ? "48px 120px 1fr 80px 120px 120px 140px 140px 120px"
@@ -307,29 +268,12 @@ const GridTransactionRow = memo(function GridTransactionRow({
         </Select>
       </div>
       
-      {/* Transfer Status */}
-      <div>
-        {getTransferStatus()}
-      </div>
-      
-      {/* Actions */}
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onLinkTransfer(transaction)}
-        >
-          <Link className="w-4 h-4 mr-1" />
-Link
-        </Button>
-      </div>
     </div>
   )
 })
 
 export default function TransactionTable({ 
   transactions, 
-  onLinkTransfer, 
   onDepartmentUpdate,
   loading,
   departments,
@@ -465,7 +409,6 @@ export default function TransactionTable({
         isSelected={selectedRows.has(transaction.content_hash)}
         onRowSelect={handleRowSelect}
         onDepartmentChange={handleDepartmentChange}
-        onLinkTransfer={onLinkTransfer}
         departmentValue={departmentUpdates[transaction.content_hash] || transaction.department || ''}
         departments={departments}
         runningTotal={runningTotals[transaction.content_hash]}
@@ -474,7 +417,7 @@ export default function TransactionTable({
         isVirtualized={true}
       />
     )
-  }, [displayTransactions, selectedRows, handleRowSelect, handleDepartmentChange, onLinkTransfer, departmentUpdates, departments, runningTotals, showRunningTotal])
+  }, [displayTransactions, selectedRows, handleRowSelect, handleDepartmentChange, departmentUpdates, departments, runningTotals, showRunningTotal])
 
   // Skeleton loading component using CSS Grid
   const SkeletonRow = () => (
@@ -623,9 +566,6 @@ export default function TransactionTable({
           <div className="space-x-2">
             <Button variant="outline" size="sm">
               Bulk Edit Department
-            </Button>
-            <Button variant="outline" size="sm">
-              Bulk Link Transfers
             </Button>
           </div>
         </div>

@@ -47,15 +47,18 @@ interface FileUpload {
 
 interface ProcessingLog {
   id: string
-  file_name: string
-  account_number: string | null
+  file_names?: string[]
+  file_paths?: string[]
+  total_transactions: number
+  total_duplicates: number
+  total_debit?: number
+  total_credit?: number
+  starting_balance?: number
+  ending_balance?: number
   status: string
-  transactions_count: number
-  duplicates_found: number
   error_message: string | null
   created_at: string
-  processing_started_at: string | null
-  processing_completed_at: string | null
+  bank?: string
 }
 
 const BANK_BUCKETS = {
@@ -109,64 +112,47 @@ export default function ExcelImport() {
 
       // If a specific bank is selected, only load logs from that bank
       if (selectedBank && selectedBank !== '') {
-        switch (selectedBank) {
-          case 'Rajhi':
-            const { data: generalLogs } = await supabase
-              .from('file_processing_logs')
-              .select('*')
-              .order('created_at', { ascending: false })
-              .limit(20)
-            allLogs = (generalLogs || []).map(log => ({ ...log, bank: 'Rajhi' }))
-            break
-          case 'Ahli':
-            const { data: ahliLogs } = await supabase
-              .from('ahli_file_logs')
-              .select('*')
-              .order('created_at', { ascending: false })
-              .limit(20)
-            allLogs = (ahliLogs || []).map(log => ({ ...log, bank: 'Ahli' }))
-            break
-          case 'GIB':
-            const { data: gibLogs } = await supabase
-              .from('gib_file_logs')
-              .select('*')
-              .order('created_at', { ascending: false })
-              .limit(20)
-            allLogs = (gibLogs || []).map(log => ({ ...log, bank: 'GIB' }))
-            break
+        const tableName = `${selectedBank.toLowerCase()}_import_batches`
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20)
+        
+        if (!error && data) {
+          allLogs = data.map(log => ({ ...log, bank: selectedBank }))
         }
       } else {
-        // Load all logs when no specific bank is selected
-        const { data: generalLogs } = await supabase
-          .from('file_processing_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10)
+        // Load logs from all banks
+        const banks = ['rajhi', 'ahli', 'gib', 'alinma', 'riyad']
+        
+        for (const bank of banks) {
+          const tableName = `${bank}_import_batches`
+          const { data, error } = await supabase
+            .from(tableName)
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(5)
+          
+          if (!error && data) {
+            allLogs = [
+              ...allLogs,
+              ...data.map(log => ({ 
+                ...log, 
+                bank: bank.charAt(0).toUpperCase() + bank.slice(1) 
+              }))
+            ]
+          }
+        }
 
-        const { data: ahliLogs } = await supabase
-          .from('ahli_file_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10)
-
-        const { data: gibLogs } = await supabase
-          .from('gib_file_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10)
-
-        // Combine and sort all logs
-        allLogs = [
-          ...(generalLogs || []).map(log => ({ ...log, bank: 'Rajhi' })),
-          ...(ahliLogs || []).map(log => ({ ...log, bank: 'Ahli' })),
-          ...(gibLogs || []).map(log => ({ ...log, bank: 'GIB' }))
-        ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        // Sort combined logs by created_at
+        allLogs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       }
 
       setLogs(allLogs)
     } catch (error) {
       console.error('Error loading logs:', error)
-      toast.error('Failed to load processing logs')
+      // Don't show error toast as tables might not exist yet
     } finally {
       setLoadingLogs(false)
     }
@@ -190,21 +176,42 @@ export default function ExcelImport() {
     setUpload(prev => ({ ...prev, uploading: true, progress: 0, error: null }))
 
     try {
+      // First, try to list files in the bucket to verify it exists and is accessible
+      const { error: listError } = await supabase.storage
+        .from(bucketName)
+        .list('', { limit: 1 })
+      
+      if (listError) {
+        console.error('Bucket access error:', listError)
+        throw new Error(`Cannot access bucket "${bucketName}". Please ensure it exists and is properly configured.`)
+      }
       // Create unique filename with timestamp
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       const filename = `${timestamp}_${upload.file.name}`
 
+      console.log('Upload details:', {
+        bucketName,
+        filename,
+        fileSize: upload.file.size,
+        fileType: upload.file.type,
+        fileName: upload.file.name
+      })
+
       // Upload file to appropriate bucket
-      const { error: uploadError } = await supabase.storage
+      const { data, error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(filename, upload.file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
+          contentType: upload.file.type || 'application/octet-stream'
         })
 
       if (uploadError) {
+        console.error('Upload error details:', uploadError)
         throw uploadError
       }
+
+      console.log('Upload success:', data)
 
       setUpload(prev => ({ ...prev, progress: 100 }))
       toast.success(`File uploaded successfully to ${upload.bank} bucket`)
@@ -224,7 +231,23 @@ export default function ExcelImport() {
       }, 2000)
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed'
+      let errorMessage = 'Upload failed'
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+        
+        // Check for specific error types
+        if (error.message.includes('400')) {
+          errorMessage = 'Bad Request: The file might be corrupted or the bucket configuration is incorrect'
+        } else if (error.message.includes('413')) {
+          errorMessage = 'File too large: Maximum file size is 50MB'
+        } else if (error.message.includes('401')) {
+          errorMessage = 'Unauthorized: Check your Supabase credentials'
+        } else if (error.message.includes('404')) {
+          errorMessage = `Bucket "${bucketName}" not found. Please create it in Supabase Storage`
+        }
+      }
+      
       setUpload(prev => ({ ...prev, error: errorMessage }))
       toast.error(`Upload failed: ${errorMessage}`)
     } finally {
@@ -501,13 +524,13 @@ export default function ExcelImport() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date & Time</TableHead>
-                  <TableHead>File Name</TableHead>
+                  <TableHead>File Names</TableHead>
                   <TableHead>Bank</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Transactions</TableHead>
                   <TableHead>Duplicates</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead>Completed</TableHead>
+                  <TableHead>Total Debit</TableHead>
+                  <TableHead>Total Credit</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -522,7 +545,15 @@ export default function ExcelImport() {
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">
-                      {log.file_name}
+                      {log.file_names && log.file_names.length > 0 ? (
+                        <div>
+                          {log.file_names.map((name, idx) => (
+                            <div key={idx} className="text-sm">{name}</div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                       {log.error_message && (
                         <div className="text-xs text-red-600 mt-1 max-w-xs truncate" title={log.error_message}>
                           {log.error_message}
@@ -531,23 +562,23 @@ export default function ExcelImport() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {(log as { bank?: string }).bank || 'Unknown'}
+                        {log.bank || 'Unknown'}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(log.status)}
                     </TableCell>
-                    <TableCell>{log.transactions_count || 0}</TableCell>
-                    <TableCell>{log.duplicates_found || 0}</TableCell>
+                    <TableCell>{log.total_transactions || 0}</TableCell>
+                    <TableCell>{log.total_duplicates || 0}</TableCell>
                     <TableCell>
-                      {log.processing_started_at ? 
-                        new Date(log.processing_started_at).toLocaleString() : 
+                      {log.total_debit ? 
+                        `SAR ${log.total_debit.toLocaleString()}` : 
                         '-'
                       }
                     </TableCell>
                     <TableCell>
-                      {log.processing_completed_at ? 
-                        new Date(log.processing_completed_at).toLocaleString() : 
+                      {log.total_credit ? 
+                        `SAR ${log.total_credit.toLocaleString()}` : 
                         '-'
                       }
                     </TableCell>

@@ -1,0 +1,201 @@
+transaction_date,description,reference,debit,credit,balance
+2025-02-08,"Incoming Instant Payment
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200GIPS252140509
+Date of Transaction: 02082025
+Time of Transaction: 08:32:20
+Value Date : 02082025
+Amount: 20,000.00
+Currency: SAR
+Charge Amount: 0.00
+VAT Amount :  0.00
+Exchange Rate: 1  
+Remitter Name: GHADEER
+Remitter Account No: SA4820000001011317819940
+Remitter Bank Name: Riyad Bank
+Remitter Bank Ref: 0000000010894672
+Remitter Address: 
+Purpose of Payment  : Bonu",200GIPS252140509,0.0,20000.0,96450.4
+2025-01-08,"Local Transfer
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200TNFT252130004
+Date of Transaction: 01082025
+Time of Transaction: 15:32:42
+Value Date : 01082025
+Amount: 100.00
+Currency: SAR
+Exchange Rate: 1  
+Beneficiary Name: Ministry of Interior - Advanced Traffic Safety Project - Sadad
+Beneficiary Account No.: SA0701100001230401000242
+Detail of payment: Individual transfer
+Purpose of Payment  : Based on Article No. (75) of the Traffic Law for violation No. (6531653934 )
+Reference: 25271048062632-AT",200TNFT252130004,100.0,0.0,76450.4
+2025-01-08,"Incoming Instant Payment
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200GIPS252130021
+Date of Transaction: 01082025
+Time of Transaction: 13:40:27
+Value Date : 01082025
+Amount: 20,000.00
+Currency: SAR
+Charge Amount: 0.00
+VAT Amount :  0.00
+Exchange Rate: 1  
+Remitter Name: GHADEER
+Remitter Account No: SA4820000001011317819940
+Remitter Bank Name: Riyad Bank
+Remitter Bank Ref: 0000000010887310
+Remitter Address: 
+Purpose of Payment  : Bonu",200GIPS252130021,0.0,20000.0,76550.4
+2025-07-31,"Outward SARIE Transfer
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200GTSA252120568
+User Reference:ST03310725777530
+Date of Transaction: 31072025
+Time of Transaction: 14:38:28
+Value Date : 31072025
+Amount: 100,000.00
+Currency: SAR
+Exchange Rate: 1  
+Charge Amount:SAR 5.00
+VAT Amount :  0.75
+Beneficiary Name: مؤسسة غدير الشرق التجارية
+Beneficiary Account No.: SA4820000001011317819940
+Beneficiary Bank Name: Riyad Bank
+Beneficiary Address: Jeddah  SAUDI ARABIA
+Purpose of Payment  : Business Related Payment,Pur
+Central Bank MOJ Reference & date:",200GTSA252120568,100005.75,0.0,56550.4
+2025-07-30,"Outward Transaction- Local Transfer
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200GOPS252110090
+Date of Transaction: 30072025
+Time of Transaction: 13:02:51
+Value Date : 30072025
+Amount: 19,000.00
+Currency: SAR
+Exchange Rate: 1  
+Charge Amount:SAR 1.00
+VAT Amount : SAR 0.15
+Beneficiary Name: Ghadeer Al Sharq Trading Est
+Beneficiary Account No.: SA8780000618608016175394
+Beneficiary Bank Name: Al Rajhi Bank
+Beneficiary Address: Jeddah  SAUDI ARABIA
+Purpose of Payment  : Business Related Payment,Pur",200GOPS252110090,19001.15,0.0,156556.15
+2025-07-29,"Management Fee - GIB Portion Fee Payment Transaction
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+Department Name: Loan Operation
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference : 200SFW125210004
+Date of Transaction: 29072025
+Time of Transaction: 15:25:10
+Fee Amount: 3,839.47
+Fee Currency: SAR
+Exchange Rate : 1
+Fee type: Management Fee - GIB Portion Fee Payment Transaction
+Payment method: Current Account
+Transaction amount: 3,839.47
+Fee detail: Management Fee - GIB Portion Fee Payment Transaction",200lric252100001,3839.47,0.0,175557.3
+2025-07-29,"Loan Initial Drawdown
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+Department Name: Loan Operation
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference : 200SFW125210004
+Date of Transaction: 29072025
+Time of Transaction: 15:23:10
+Start Date: 29072025
+Maturity Date: 26112025
+Loan Amount: 133,547.20
+Loan Currency: SAR
+Interest Rate: 10.00000
+Exchange Rate : 1
+Loan type: Beehive Program 2 - Working Capital Finance
+Payment method: Current Account
+Transaction amount: 133,547.20
+Loan detail: Loan Initial Drawdown",200l6v3252100001,0.0,133547.2,179396.77
+2025-07-29,"Outward Transaction- Local Transfer
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200GOPS252100033
+Date of Transaction: 29072025
+Time of Transaction: 11:03:57
+Value Date : 29072025
+Amount: 10,000.00
+Currency: SAR
+Exchange Rate: 1  
+Charge Amount:SAR 1.00
+VAT Amount : SAR 0.15
+Beneficiary Name: ALRAWAQ ALABYADH TRADING EST
+Beneficiary Account No.: SA1010000001400026788306
+Beneficiary Bank Name: The Saudi National Bank
+Beneficiary Address: Jeddah  SAUDI ARABIA
+Purpose of Payment  : Business Related Payment,Service Fe
+E",200GOPS252100033,10001.15,0.0,45849.57
+2025-07-29,"Outward Transaction- Local Transfer
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200GOPS252100538
+Date of Transaction: 29072025
+Time of Transaction: 09:26:05
+Value Date : 29072025
+Amount: 20,000.00
+Currency: SAR
+Exchange Rate: 1  
+Charge Amount:SAR 1.00
+VAT Amount : SAR 0.15
+Beneficiary Name: مؤسسة غدير الشرق التجارية
+Beneficiary Account No.: SA4820000001011317819940
+Beneficiary Bank Name: Riyad Bank
+Beneficiary Address: Jeddah  SAUDI ARABIA
+Purpose of Payment  : Business Related Payment,Purchase",200GOPS252100538,20001.15,0.0,55850.72
+2025-07-29,"Outward Transaction- Local Transfer
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200GOPS252100537
+Date of Transaction: 29072025
+Time of Transaction: 09:25:48
+Value Date : 29072025
+Amount: 20,000.00
+Currency: SAR
+Exchange Rate: 1  
+Charge Amount:SAR 1.00
+VAT Amount : SAR 0.15
+Beneficiary Name: مؤسسة غدير الشرق التجارية
+Beneficiary Account No.: SA4820000001011317819940
+Beneficiary Bank Name: Riyad Bank
+Beneficiary Address: Jeddah  SAUDI ARABIA
+Purpose of Payment  : Business Related Payment,Purchase",200GOPS252100537,20001.15,0.0,75851.87
+2025-07-29,"Outward SARIE Transfer
+Bank Name: Gulf International Bank - Saudi Arabia
+Branch Name: KSA Head Office
+City: Cooperative Council Rd , AlKhuzama Area, Al Khobar
+Reference: 200GTSA252100009
+User Reference:ST03290725757915
+Date of Transaction: 29072025
+Time of Transaction: 09:20:45
+Value Date : 29072025
+Amount: 114,000.00
+Currency: SAR
+Exchange Rate: 1  
+Charge Amount:SAR 5.00
+VAT Amount :  0.75
+Beneficiary Name: Establishment Ghadir al-shraq Comme
+Beneficiary Account No.: SA2810000032700000687209
+Beneficiary Bank Name: The Saudi National Bank
+Beneficiary Address: rcial JEDDAH  SAUDI ARABIA
+Purpose of Payment  : Business Related Payment,Purchase
+Central Bank MOJ Reference & date:",200GTSA252100009,114005.75,0.0,95853.02

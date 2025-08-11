@@ -10,7 +10,6 @@ import { Combobox, ComboboxOption } from '@/components/ui/combobox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import TransactionTableNew from './TransactionTableNew'
-import TransferLinkingModal from './TransferLinkingModal'
 import SummaryDashboard from './SummaryDashboard'
 import { transactionService, FrontendTransaction, PaginatedFrontendTransactions, departmentService, Department } from '@/lib/supabase'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
@@ -27,10 +26,7 @@ export default function TransactionManager() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedBank, setSelectedBank] = useState<string>('all')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
-  const [linkingStatus, setLinkingStatus] = useState<string>('all')
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
-  const [selectedTransaction, setSelectedTransaction] = useState<FrontendTransaction | null>(null)
-  const [isLinkingModalOpen, setIsLinkingModalOpen] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [nextCursor, setNextCursor] = useState<string | undefined>()
   const nextCursorRef = useRef<string | undefined>(undefined)
@@ -63,28 +59,21 @@ export default function TransactionManager() {
     }))
   ], [departments])
 
-  const statusOptions: ComboboxOption[] = useMemo(() => [
-    { value: 'all', label: 'All Transactions', icon: <Filter className="w-4 h-4" /> },
-    { value: 'linked', label: 'Linked Transfers', icon: <Filter className="w-4 h-4" /> },
-    { value: 'unlinked', label: 'Unlinked', icon: <Filter className="w-4 h-4" /> },
-  ], [])
 
   // Memoized filters object to prevent unnecessary API calls
   const filters = useMemo(() => ({
     bank: selectedBank !== 'all' ? selectedBank : undefined,
     department: selectedDepartment !== 'all' ? selectedDepartment : undefined,
-    linkingStatus: linkingStatus !== 'all' ? linkingStatus : undefined,
     searchTerm: searchTerm.trim() || undefined,
     dateFrom: dateRange?.from ? formatDateForAPI(dateRange.from) : undefined,
     dateTo: dateRange?.to ? formatDateForAPI(dateRange.to) : undefined
-  }), [selectedBank, selectedDepartment, linkingStatus, searchTerm, dateRange])
+  }), [selectedBank, selectedDepartment, searchTerm, dateRange])
 
   // Count active filters
   const activeFilterCount = useMemo(() => {
     let count = 0
     if (filters.bank) count++
     if (filters.department) count++
-    if (filters.linkingStatus) count++
     if (filters.searchTerm) count++
     if (filters.dateFrom || filters.dateTo) count++
     return count
@@ -197,11 +186,6 @@ export default function TransactionManager() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [loadDepartments])
 
-  // These handlers are kept for compatibility with admin pages that might still use the old TransactionTable
-  const handleLinkTransfer = (transaction: FrontendTransaction) => {
-    setSelectedTransaction(transaction)
-    setIsLinkingModalOpen(true)
-  }
 
   const handleDepartmentUpdate = useCallback(async (transaction: FrontendTransaction, departmentId: string) => {
     try {
@@ -242,17 +226,11 @@ export default function TransactionManager() {
   }, [])
 
 
-  const handleLinkingComplete = useCallback(() => {
-    setIsLinkingModalOpen(false)
-    setSelectedTransaction(null)
-    loadTransactions(true) // Reload to see changes
-  }, [loadTransactions])
 
   const clearAllFilters = useCallback(() => {
     setSearchTerm('')
     setSelectedBank('all')
     setSelectedDepartment('all')
-    setLinkingStatus('all')
     setDateRange(undefined)
   }, [])
 
@@ -335,17 +313,6 @@ export default function TransactionManager() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Transfer Status</Label>
-                    <Combobox
-                      options={statusOptions}
-                      value={linkingStatus}
-                      onValueChange={setLinkingStatus}
-                      placeholder="Select status"
-                      searchPlaceholder="Search status..."
-                      emptyText="No status found."
-                    />
-                  </div>
                 </div>
                 
                 <div className="space-y-2">
@@ -415,13 +382,6 @@ export default function TransactionManager() {
         </TabsContent>
       </Tabs>
 
-      {/* Transfer Linking Modal */}
-      <TransferLinkingModal
-        isOpen={isLinkingModalOpen}
-        onClose={() => setIsLinkingModalOpen(false)}
-        transaction={selectedTransaction}
-        onLinkingComplete={handleLinkingComplete}
-      />
     </div>
   )
 }

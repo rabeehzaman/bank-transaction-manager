@@ -67,20 +67,22 @@ class OfflineStore {
     const tx = this.db!.transaction(['transactions'], 'readwrite')
     const store = tx.objectStore('transactions')
 
-    // Clear old transactions
-    await this.clearStore('transactions')
-
-    // Store new transactions
-    for (const transaction of transactions) {
-      const offlineTransaction: OfflineTransaction = {
-        id: transaction.content_hash || `${transaction.Date}_${transaction.Description}`,
-        data: transaction,
-        timestamp: Date.now()
-      }
-      store.put(offlineTransaction)
-    }
-
+    // Clear old transactions first within the same transaction
+    const clearRequest = store.clear()
+    
     return new Promise((resolve, reject) => {
+      clearRequest.onsuccess = () => {
+        // Store new transactions after clearing
+        for (const transaction of transactions) {
+          const offlineTransaction: OfflineTransaction = {
+            id: transaction.content_hash || `${transaction.Date}_${transaction.Description}`,
+            data: transaction,
+            timestamp: Date.now()
+          }
+          store.put(offlineTransaction)
+        }
+      }
+      
       tx.oncomplete = () => {
         console.log(`Stored ${transactions.length} transactions offline`)
         resolve()

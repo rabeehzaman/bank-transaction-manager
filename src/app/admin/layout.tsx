@@ -22,21 +22,25 @@ export default function AdminLayout({
   const router = useRouter()
 
   const getActiveTab = () => {
-    if (pathname.includes('/departments')) return 'departments'
+    if (pathname === '/admin' || pathname === '/admin/') return 'departments'
     if (pathname.includes('/rules')) return 'rules'
     if (pathname.includes('/sync')) return 'sync'
     return 'departments'
   }
 
   const getCurrentPageName = () => {
-    if (pathname.includes('/departments')) return 'Departments'
+    if (pathname === '/admin' || pathname === '/admin/') return 'Departments'
     if (pathname.includes('/rules')) return 'Rules'
     if (pathname.includes('/sync')) return 'Sync'
     return 'Departments'
   }
 
   const handleTabChange = (value: string) => {
-    router.push(`/admin/${value === 'departments' ? '' : value}`)
+    if (value === 'departments') {
+      router.push('/admin')
+    } else {
+      router.push(`/admin/${value}`)
+    }
   }
 
   return (
