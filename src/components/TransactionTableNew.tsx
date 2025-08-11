@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -36,7 +37,10 @@ import {
   CreditCard,
   DollarSign,
   Hash,
-  Tag
+  Tag,
+  FileText,
+  Save,
+  X
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { 
@@ -70,6 +74,8 @@ export default function TransactionTableNew({
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [selectedTransaction, setSelectedTransaction] = useState<FrontendTransaction | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [isEditingManualDescription, setIsEditingManualDescription] = useState(false)
+  const [manualDescriptionValue, setManualDescriptionValue] = useState('')
 
   // Load transactions and departments
   const loadDepartments = useCallback(async () => {
@@ -242,6 +248,44 @@ export default function TransactionTableNew({
   const handleTransactionClick = (transaction: FrontendTransaction) => {
     setSelectedTransaction(transaction)
     setIsDetailsOpen(true)
+    setIsEditingManualDescription(false)
+    setManualDescriptionValue(transaction.manual_description || '')
+  }
+
+  // Handle manual description update
+  const handleManualDescriptionUpdate = async () => {
+    if (!selectedTransaction) return
+
+    try {
+      await transactionService.updateManualDescription(
+        selectedTransaction.content_hash,
+        manualDescriptionValue || null
+      )
+      
+      // Update the selected transaction state
+      setSelectedTransaction({
+        ...selectedTransaction,
+        manual_description: manualDescriptionValue || null
+      })
+      
+      setIsEditingManualDescription(false)
+      toast.success('Manual description updated successfully')
+    } catch (error) {
+      console.error('Error updating manual description:', error)
+      toast.error('Failed to update manual description')
+    }
+  }
+
+  // Handle manual description edit start
+  const handleEditManualDescription = () => {
+    setIsEditingManualDescription(true)
+    setManualDescriptionValue(selectedTransaction?.manual_description || '')
+  }
+
+  // Handle manual description edit cancel
+  const handleCancelManualDescription = () => {
+    setIsEditingManualDescription(false)
+    setManualDescriptionValue(selectedTransaction?.manual_description || '')
   }
 
 
@@ -463,6 +507,77 @@ export default function TransactionTableNew({
                     <p className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3 leading-relaxed">
                       {selectedTransaction.Description}
                     </p>
+                  </div>
+                </div>
+
+                {/* Manual Description Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-primary/10">
+                      <FileText className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <span className="text-sm font-medium">Manual Description</span>
+                    {!isEditingManualDescription && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleEditManualDescription}
+                        className="h-6 w-6 p-0 ml-auto"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="pl-9">
+                    {isEditingManualDescription ? (
+                      <div className="space-y-2">
+                        <Input
+                          value={manualDescriptionValue}
+                          onChange={(e) => setManualDescriptionValue(e.target.value)}
+                          placeholder="Enter manual description..."
+                          className="text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleManualDescriptionUpdate()
+                            } else if (e.key === 'Escape') {
+                              handleCancelManualDescription()
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            onClick={handleManualDescriptionUpdate}
+                            className="h-7"
+                          >
+                            <Save className="h-3 w-3 mr-1" />
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={handleCancelManualDescription}
+                            className="h-7"
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-muted/30 rounded-lg p-3 min-h-[2.5rem] flex items-center">
+                        {selectedTransaction.manual_description ? (
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {selectedTransaction.manual_description}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground/60 italic">
+                            No manual description added
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -20,6 +20,7 @@ export interface FrontendTransaction {
   department_id: string | null
   net_amount: number
   'Sort Order': number
+  manual_description?: string | null
 }
 
 export interface Department {
@@ -247,6 +248,28 @@ export const transactionService = {
       return data || 0
     } catch (error) {
       console.error('Error bulk assigning departments:', error)
+      throw error
+    }
+  },
+
+  // Update manual description for a transaction
+  async updateManualDescription(
+    contentHash: string,
+    manualDescription: string | null
+  ): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
+    }
+
+    try {
+      const { error } = await supabase.rpc('update_manual_description', {
+        p_content_hash: contentHash,
+        p_manual_description: manualDescription
+      })
+
+      if (error) throw error
+    } catch (error) {
+      console.error('Error updating manual description:', error)
       throw error
     }
   }
