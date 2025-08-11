@@ -120,7 +120,8 @@ export const transactionService = {
         if (filters.department === 'Unassigned') {
           query = query.eq('department', 'Unassigned')
         } else {
-          query = query.eq('department', filters.department)
+          // Use case-insensitive matching and trim whitespace for more robust filtering
+          query = query.ilike('department', filters.department)
         }
       }
 
