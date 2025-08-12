@@ -69,6 +69,73 @@ export default function TransactionManager() {
     dateTo: dateRange?.to ? formatDateForAPI(dateRange.to) : undefined
   }), [selectedBank, selectedDepartment, searchTerm, dateRange])
 
+  // Helper function to check if a transaction matches the current filters
+  const transactionMatchesFilters = useCallback((transaction: FrontendTransaction) => {
+    // Check bank filter
+    if (filters.bank && transaction.Bank !== filters.bank) {
+      return false
+    }
+
+    // Check department filter
+    if (filters.department) {
+      if (filters.department === 'Unassigned') {
+        if (transaction.department !== 'Unassigned') {
+          return false
+        }
+      } else {
+        if (transaction.department !== filters.department) {
+          return false
+        }
+      }
+    }
+
+    // Check search term filter
+    if (filters.searchTerm) {
+      const searchTerm = filters.searchTerm.toLowerCase()
+      
+      // Check if the search term is numeric (for amount searching)
+      const isNumericSearch = /^\d+\.?\d*$/.test(searchTerm)
+      
+      if (isNumericSearch) {
+        const numericValue = parseFloat(searchTerm)
+        const matchesAmount = 
+          transaction.net_amount === numericValue ||
+          transaction['Cash In'] === numericValue ||
+          transaction['Cash Out'] === numericValue
+        
+        if (!matchesAmount) {
+          return false
+        }
+      } else {
+        // Text search in description
+        if (!transaction.Description.toLowerCase().includes(searchTerm)) {
+          return false
+        }
+      }
+    }
+
+    // Check date range filters
+    if (filters.dateFrom || filters.dateTo) {
+      const transactionDate = new Date(transaction.Date)
+      
+      if (filters.dateFrom) {
+        const fromDate = new Date(filters.dateFrom)
+        if (transactionDate < fromDate) {
+          return false
+        }
+      }
+      
+      if (filters.dateTo) {
+        const toDate = new Date(filters.dateTo)
+        if (transactionDate > toDate) {
+          return false
+        }
+      }
+    }
+
+    return true
+  }, [filters])
+
   // Count active filters
   const activeFilterCount = useMemo(() => {
     let count = 0
@@ -211,19 +278,31 @@ export default function TransactionManager() {
     departmentId: string, 
     departmentName?: string
   ) => {
-    // Optimistic update: immediately update the transaction in local state
+    // Create the updated transaction
+    const updatedTransaction: FrontendTransaction = {
+      ...transaction,
+      department_id: departmentId === 'unassigned' ? null : departmentId,
+      department: departmentName || 'Unassigned'
+    }
+
+    // Check if the updated transaction still matches current filters
+    const stillMatchesFilters = transactionMatchesFilters(updatedTransaction)
+
     setTransactions(prevTransactions => 
-      prevTransactions.map(t => 
-        t.content_hash === transaction.content_hash 
-          ? { 
-              ...t, 
-              department_id: departmentId === 'unassigned' ? null : departmentId,
-              department: departmentName || 'Unassigned'
-            }
-          : t
-      )
+      prevTransactions
+        .map(t => 
+          t.content_hash === transaction.content_hash 
+            ? updatedTransaction
+            : t
+        )
+        // Remove transactions that no longer match the current filters
+        .filter(t => 
+          t.content_hash === transaction.content_hash 
+            ? stillMatchesFilters 
+            : true
+        )
     )
-  }, [])
+  }, [transactionMatchesFilters])
 
 
 
