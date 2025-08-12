@@ -276,6 +276,62 @@ export const transactionService = {
   }
 }
 
+// Transaction totals interface
+export interface TransactionTotals {
+  total_in: number
+  total_out: number
+  net_balance: number
+  transaction_count: number
+}
+
+// Transaction totals service
+export const transactionTotalsService = {
+  async getTransactionTotals(filters?: {
+    bank?: string
+    department?: string
+    searchTerm?: string
+    dateFrom?: string
+    dateTo?: string
+  }): Promise<TransactionTotals> {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('get_transaction_totals', {
+        bank_filter: filters?.bank && filters.bank !== 'all' ? filters.bank : null,
+        department_filter: filters?.department && filters.department !== 'all' ? filters.department : null,
+        search_term: filters?.searchTerm?.trim() || null,
+        date_from: filters?.dateFrom || null,
+        date_to: filters?.dateTo || null
+      })
+
+      if (error) throw error
+
+      // The RPC function returns an array with one row
+      const result = data?.[0]
+      if (!result) {
+        return {
+          total_in: 0,
+          total_out: 0,
+          net_balance: 0,
+          transaction_count: 0
+        }
+      }
+
+      return {
+        total_in: parseFloat(result.total_in) || 0,
+        total_out: parseFloat(result.total_out) || 0,
+        net_balance: parseFloat(result.net_balance) || 0,
+        transaction_count: parseInt(result.transaction_count) || 0
+      }
+    } catch (error) {
+      console.error('Error fetching transaction totals:', error)
+      throw error
+    }
+  }
+}
+
 // Department service
 export const departmentService = {
   async getAllDepartments(): Promise<Department[]> {

@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import TransactionTableNew from './TransactionTableNew'
 import SummaryDashboard from './SummaryDashboard'
-import { transactionService, FrontendTransaction, PaginatedFrontendTransactions, departmentService, Department } from '@/lib/supabase'
+import TransactionTotalsCard from './TransactionTotalsCard'
+import { transactionService, FrontendTransaction, PaginatedFrontendTransactions, departmentService, Department, transactionTotalsService, TransactionTotals } from '@/lib/supabase'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { DateRange } from 'react-day-picker'
 import { toast } from 'sonner'
@@ -23,6 +24,9 @@ export default function TransactionManager() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [totals, setTotals] = useState<TransactionTotals | null>(null)
+  const [totalsLoading, setTotalsLoading] = useState(false)
+  const [totalsError, setTotalsError] = useState<string | undefined>()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedBank, setSelectedBank] = useState<string>('all')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
@@ -225,6 +229,30 @@ export default function TransactionManager() {
     return () => clearTimeout(timeoutId)
   }, [filters, loadTransactions])
 
+  // Load transaction totals
+  const loadTransactionTotals = useCallback(async () => {
+    setTotalsLoading(true)
+    setTotalsError(undefined)
+    
+    try {
+      const totalsData = await transactionTotalsService.getTransactionTotals(filters)
+      setTotals(totalsData)
+    } catch (error) {
+      console.error('Failed to load transaction totals:', error)
+      setTotalsError(error instanceof Error ? error.message : 'Failed to load totals')
+      
+      // Set default empty totals on error
+      setTotals({
+        total_in: 0,
+        total_out: 0,
+        net_balance: 0,
+        transaction_count: 0
+      })
+    } finally {
+      setTotalsLoading(false)
+    }
+  }, [filters])
+
   // Load departments
   const loadDepartments = useCallback(async () => {
     try {
@@ -240,6 +268,15 @@ export default function TransactionManager() {
     loadTransactions(true)
     loadDepartments()
   }, [loadTransactions, loadDepartments])
+
+  // Load transaction totals when filters change
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadTransactionTotals()
+    }, 300) // 300ms debounce to match the transactions loading
+
+    return () => clearTimeout(timeoutId)
+  }, [loadTransactionTotals])
 
   // Refresh departments when page becomes visible (e.g., returning from admin panel)
   useEffect(() => {
@@ -322,6 +359,13 @@ export default function TransactionManager() {
         </TabsList>
 
         <TabsContent value="transactions" className="space-y-6">
+          {/* Transaction Totals Summary */}
+          <TransactionTotalsCard
+            totals={totals}
+            loading={totalsLoading}
+            error={totalsError}
+          />
+
           {/* Transactions Table with Integrated Filters */}
           <Card>
             <CardHeader className="space-y-4">
