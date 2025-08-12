@@ -91,110 +91,209 @@ export default function TransactionTotalsCard({ totals, loading, error }: Transa
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2">
-          <BarChart3 className="w-5 h-5" />
-          Transaction Summary
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Total In */}
-          <div className="text-center p-4 rounded-lg border bg-green-50/50 dark:bg-green-950/30 border-green-200 dark:border-green-900">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-              <span className="text-sm font-medium text-green-700 dark:text-green-400">Total In</span>
-            </div>
-            <div className="text-2xl font-bold text-green-700 dark:text-green-400 mb-1">
-              {formatCurrency(totals.total_in)}
-            </div>
-            <div className="text-xs text-green-600 dark:text-green-500">
-              Incoming funds
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Total In Card */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 p-6 text-white shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-transparent"></div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-full bg-white/20 backdrop-blur-sm">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <h3 className="font-semibold text-white/90">Total In</h3>
             </div>
           </div>
-
-          {/* Total Out */}
-          <div className="text-center p-4 rounded-lg border bg-red-50/50 dark:bg-red-950/30 border-red-200 dark:border-red-900">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
-              <span className="text-sm font-medium text-red-700 dark:text-red-400">Total Out</span>
+          <div className="space-y-2">
+            <div className="text-3xl font-bold">
+              {loading ? (
+                <Skeleton className="h-8 w-32 bg-white/20" />
+              ) : (
+                formatCurrency(totals?.total_in || 0)
+              )}
             </div>
-            <div className="text-2xl font-bold text-red-700 dark:text-red-400 mb-1">
-              {formatCurrency(totals.total_out)}
-            </div>
-            <div className="text-xs text-red-600 dark:text-red-500">
-              Outgoing funds
-            </div>
-          </div>
-
-          {/* Net Balance */}
-          <div className={`text-center p-4 rounded-lg border ${
-            totals.net_balance >= 0 
-              ? 'bg-blue-50/50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900' 
-              : 'bg-orange-50/50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-900'
-          }`}>
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <DollarSign className={`w-4 h-4 ${
-                totals.net_balance >= 0 
-                  ? 'text-blue-600 dark:text-blue-400' 
-                  : 'text-orange-600 dark:text-orange-400'
-              }`} />
-              <span className={`text-sm font-medium ${
-                totals.net_balance >= 0 
-                  ? 'text-blue-700 dark:text-blue-400' 
-                  : 'text-orange-700 dark:text-orange-400'
-              }`}>
-                Net Balance
-              </span>
-            </div>
-            <div className={`text-2xl font-bold mb-1 ${
-              totals.net_balance >= 0 
-                ? 'text-blue-700 dark:text-blue-400' 
-                : 'text-orange-700 dark:text-orange-400'
-            }`}>
-              {totals.net_balance >= 0 ? '+' : ''}{formatCurrency(Math.abs(totals.net_balance))}
-            </div>
-            <div className={`text-xs ${
-              totals.net_balance >= 0 
-                ? 'text-blue-600 dark:text-blue-500' 
-                : 'text-orange-600 dark:text-orange-500'
-            }`}>
-              {totals.net_balance >= 0 ? 'Positive balance' : 'Negative balance'}
-            </div>
-          </div>
-
-          {/* Transaction Count */}
-          <div className="text-center p-4 rounded-lg border bg-muted/20 dark:bg-muted/30">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <BarChart3 className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">Total Transactions</span>
-            </div>
-            <div className="text-2xl font-bold text-foreground mb-1">
-              {totals.transaction_count.toLocaleString()}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Transactions found
+            <p className="text-sm text-white/80">Incoming funds</p>
+            
+            {/* Progress bar effect */}
+            <div className="mt-4">
+              <div className="text-xs text-white/70 mb-1">Portfolio Utilization</div>
+              <div className="w-full bg-white/20 rounded-full h-1.5">
+                <div 
+                  className="bg-white h-1.5 rounded-full transition-all duration-500"
+                  style={{ 
+                    width: totals?.total_in && (totals.total_in + totals.total_out) > 0 
+                      ? `${(totals.total_in / (totals.total_in + totals.total_out)) * 100}%` 
+                      : '0%'
+                  }}
+                ></div>
+              </div>
+              <div className="text-xs text-white/90 mt-1 font-medium">
+                {totals?.total_in && (totals.total_in + totals.total_out) > 0 
+                  ? `${((totals.total_in / (totals.total_in + totals.total_out)) * 100).toFixed(1)}%`
+                  : '0.0%'
+                }
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Additional Summary Info */}
-        {totals.transaction_count > 0 && (
-          <div className="mt-4 pt-4 border-t">
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <div>
-                Average transaction: {formatCurrency((totals.total_in + totals.total_out) / totals.transaction_count)}
+      {/* Total Out Card */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-500 via-rose-500 to-pink-600 p-6 text-white shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-transparent"></div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-full bg-white/20 backdrop-blur-sm">
+                <TrendingDown className="w-5 h-5" />
               </div>
-              <div>
-                {totals.total_in > 0 && totals.total_out > 0 && (
-                  <>In/Out Ratio: {(totals.total_in / totals.total_out).toFixed(2)}:1</>
-                )}
+              <h3 className="font-semibold text-white/90">Total Out</h3>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="text-3xl font-bold">
+              {loading ? (
+                <Skeleton className="h-8 w-32 bg-white/20" />
+              ) : (
+                formatCurrency(totals?.total_out || 0)
+              )}
+            </div>
+            <p className="text-sm text-white/80">Outgoing funds</p>
+            
+            {/* Progress bar effect */}
+            <div className="mt-4">
+              <div className="text-xs text-white/70 mb-1">Portfolio Utilization</div>
+              <div className="w-full bg-white/20 rounded-full h-1.5">
+                <div 
+                  className="bg-white h-1.5 rounded-full transition-all duration-500"
+                  style={{ 
+                    width: totals?.total_out && (totals.total_in + totals.total_out) > 0 
+                      ? `${(totals.total_out / (totals.total_in + totals.total_out)) * 100}%` 
+                      : '0%'
+                  }}
+                ></div>
+              </div>
+              <div className="text-xs text-white/90 mt-1 font-medium">
+                {totals?.total_out && (totals.total_in + totals.total_out) > 0 
+                  ? `${((totals.total_out / (totals.total_in + totals.total_out)) * 100).toFixed(1)}%`
+                  : '0.0%'
+                }
               </div>
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      </div>
+
+      {/* Net Balance Card */}
+      <div className={`relative overflow-hidden rounded-2xl p-6 text-white shadow-xl ${
+        (totals?.net_balance || 0) >= 0 
+          ? 'bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600'
+          : 'bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-600'
+      }`}>
+        <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-transparent"></div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-full bg-white/20 backdrop-blur-sm">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <h3 className="font-semibold text-white/90">Net Balance</h3>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="text-3xl font-bold">
+              {loading ? (
+                <Skeleton className="h-8 w-32 bg-white/20" />
+              ) : (
+                <>
+                  {(totals?.net_balance || 0) >= 0 ? '+' : ''}
+                  {formatCurrency(Math.abs(totals?.net_balance || 0))}
+                </>
+              )}
+            </div>
+            <p className="text-sm text-white/80">
+              {(totals?.net_balance || 0) >= 0 ? 'Positive balance' : 'Negative balance'}
+            </p>
+            
+            {/* Balance indicator */}
+            <div className="mt-4">
+              <div className="text-xs text-white/70 mb-1">Balance Status</div>
+              <div className="w-full bg-white/20 rounded-full h-1.5">
+                <div className="bg-white h-1.5 rounded-full transition-all duration-500 w-full"></div>
+              </div>
+              <div className="text-xs text-white/90 mt-1 font-medium">
+                {(totals?.net_balance || 0) >= 0 ? 'Healthy' : 'Deficit'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Transaction Count Card */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-600 via-gray-600 to-zinc-700 p-6 text-white shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-transparent"></div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-full bg-white/20 backdrop-blur-sm">
+                <BarChart3 className="w-5 h-5" />
+              </div>
+              <h3 className="font-semibold text-white/90">Transactions</h3>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="text-3xl font-bold">
+              {loading ? (
+                <Skeleton className="h-8 w-20 bg-white/20" />
+              ) : (
+                (totals?.transaction_count || 0).toLocaleString()
+              )}
+            </div>
+            <p className="text-sm text-white/80">Total records</p>
+            
+            {/* Activity indicator */}
+            <div className="mt-4">
+              <div className="text-xs text-white/70 mb-1">Activity Level</div>
+              <div className="w-full bg-white/20 rounded-full h-1.5">
+                <div 
+                  className="bg-white h-1.5 rounded-full transition-all duration-500"
+                  style={{ 
+                    width: totals?.transaction_count 
+                      ? `${Math.min((totals.transaction_count / 200) * 100, 100)}%`
+                      : '0%'
+                  }}
+                ></div>
+              </div>
+              <div className="text-xs text-white/90 mt-1 font-medium">
+                {totals?.transaction_count && totals.transaction_count > 0 ? 'Active' : 'No Data'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Summary Info - Full width */}
+      {totals && totals.transaction_count > 0 && (
+        <div className="md:col-span-4 mt-2">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <div className="flex items-center gap-4">
+                <span>
+                  <strong className="text-foreground">Average Transaction:</strong> {formatCurrency((totals.total_in + totals.total_out) / totals.transaction_count)}
+                </span>
+                {totals.total_in > 0 && totals.total_out > 0 && (
+                  <span>
+                    <strong className="text-foreground">In/Out Ratio:</strong> {(totals.total_in / totals.total_out).toFixed(2)}:1
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Last updated: {new Date().toLocaleTimeString()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
