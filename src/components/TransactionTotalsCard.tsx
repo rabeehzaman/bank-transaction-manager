@@ -288,7 +288,7 @@ export default function TransactionTotalsCard({ totals, loading, error }: Transa
                 )}
               </div>
               <div className="text-xs text-muted-foreground">
-                Last updated: {new Date().toLocaleTimeString()}
+                {typeof window !== 'undefined' && `Last updated: ${new Date().toLocaleTimeString()}`}
               </div>
             </div>
           </div>

@@ -17,7 +17,7 @@ const withPWA = (config: NextConfig) => {
             cacheName: 'supabase-api',
             expiration: {
               maxEntries: 50,
-              maxAgeSeconds: 60 * 60 * 24, // 24 hours
+              maxAgeSeconds: 60 * 5, // 5 minutes for fresh transaction data
             },
             networkTimeoutSeconds: 10,
           },

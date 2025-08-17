@@ -33,6 +33,7 @@ export default function TransactionManager() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
   const [hasMore, setHasMore] = useState(true)
   const [nextCursor, setNextCursor] = useState<string | undefined>()
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const nextCursorRef = useRef<string | undefined>(undefined)
 
   // Helper function to format date in local timezone as YYYY-MM-DD
@@ -186,6 +187,7 @@ export default function TransactionManager() {
 
       setHasMore(result.pagination.hasMore)
       setNextCursor(result.pagination.nextCursor)
+      setLastUpdated(new Date())
     } catch (error) {
       console.error('Error loading transactions:', error)
       
@@ -348,6 +350,11 @@ export default function TransactionManager() {
     setSelectedBank('all')
     setSelectedDepartment('all')
     setDateRange(undefined)
+    
+    // Clear any cached filter data
+    if ('caches' in window) {
+      caches.delete('supabase-api')
+    }
   }, [])
 
   return (
@@ -463,10 +470,26 @@ export default function TransactionManager() {
                       Loading...
                     </div>
                   )}
+                  {lastUpdated && (
+                    <p className="text-xs text-muted-foreground">
+                      Last updated: {lastUpdated.toLocaleTimeString()}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button 
-                    onClick={() => loadTransactions(true)} 
+                    onClick={() => {
+                      // Clear cache and force refresh
+                      if ('caches' in window) {
+                        caches.delete('supabase-api').then(() => {
+                          loadTransactions(true)
+                          loadTransactionTotals()
+                        })
+                      } else {
+                        loadTransactions(true)
+                        loadTransactionTotals()
+                      }
+                    }} 
                     disabled={loading}
                     variant="outline"
                     size="sm"

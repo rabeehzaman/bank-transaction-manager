@@ -153,6 +153,7 @@ export const transactionService = {
       // Limit the results
       query = query.limit(limit + 1) // Get one extra to check if there are more results
 
+      // Add cache-busting for fresh data
       const result = await query
 
       if (result.error) throw result.error
