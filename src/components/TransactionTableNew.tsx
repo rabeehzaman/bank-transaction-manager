@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { BankBadge } from '@/components/ui/bank-badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -421,7 +421,7 @@ export default function TransactionTableNew({
                               ) : '-'}
                             </TableCell>
                             <TableCell>
-                              <Badge variant="secondary">{transaction.Bank}</Badge>
+                              <BankBadge bankName={transaction.Bank} />
                             </TableCell>
                             <TableCell>
                               <Select 
@@ -645,9 +645,7 @@ export default function TransactionTableNew({
                   <div className="pl-9">
                     <div className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2.5">
                       <span className="text-sm text-muted-foreground">Bank</span>
-                      <Badge variant="outline" className="font-medium">
-                        {selectedTransaction.Bank}
-                      </Badge>
+                      <BankBadge bankName={selectedTransaction.Bank} />
                     </div>
                   </div>
                 </div>
