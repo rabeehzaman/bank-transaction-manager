@@ -24,7 +24,8 @@ import {
   Building2, 
   Settings, 
   RefreshCw,
-  Keyboard
+  Keyboard,
+  Car
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useKeyboardShortcuts } from '@/components/KeyboardShortcuts'
@@ -35,6 +36,11 @@ const navigationItems = [
     title: 'Transactions',
     icon: Database,
     href: '/transactions',
+  },
+  {
+    title: 'Vehicle Loans',
+    icon: Car,
+    href: '/vehicle-loans',
   },
   {
     title: 'Import',
