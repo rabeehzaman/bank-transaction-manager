@@ -39,38 +39,7 @@ interface PaymentCalculation {
   isOverdue: boolean
 }
 
-// Add default payment data for vehicles missing payment information
-const addDefaultPaymentData = (vehicle: Partial<Vehicle>): Vehicle => {
-  // If payment data is missing, infer from deduction day and owner
-  if (!vehicle.firstInstallmentDate) {
-    if (vehicle.ownerName === 'Tayseer Arabian Company') {
-      return {
-        ...vehicle,
-        firstInstallmentDate: vehicle.deductionDay === 27 ? '3/27/23' : '7/27/22',
-        totalMonths: 36,
-        lastInstallmentDate: vehicle.deductionDay === 27 ? '2/27/26' : '6/27/25'
-      } as Vehicle
-    } else if (vehicle.ownerName === 'ALRAJHI BANK') {
-      return {
-        ...vehicle,
-        firstInstallmentDate: vehicle.deductionDay === 6 ? '8/6/23' :
-                             vehicle.deductionDay === 15 ? '5/14/25' :
-                             vehicle.deductionDay === 14 ? '5/14/25' :
-                             vehicle.deductionDay === 9 ? '10/9/24' :
-                             vehicle.deductionDay === 8 ? '10/9/24' : '10/5/22',
-        totalMonths: 48,
-        lastInstallmentDate: vehicle.deductionDay === 6 ? '8/6/27' :
-                            vehicle.deductionDay === 15 ? '5/14/29' :
-                            vehicle.deductionDay === 14 ? '5/14/29' :
-                            vehicle.deductionDay === 9 ? '10/9/28' :
-                            vehicle.deductionDay === 8 ? '10/9/28' : '9/5/26'
-      } as Vehicle
-    }
-  }
-  return vehicle as Vehicle
-}
-
-const rawVehicleData: Partial<Vehicle>[] = [
+const vehicleData: Vehicle[] = [
   {
     plateNumber: "ب ص و 1521 (UXB 1521)",
     plateType: "Private Transport",
@@ -178,7 +147,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "Tayseer Arabian Company",
     department: "Mada",
     installment: 3760,
-    deductionDay: 27
+    deductionDay: 27,
+    firstInstallmentDate: "7/27/22",
+    totalMonths: 36,
+    lastInstallmentDate: "6/27/25"
   },
   {
     plateNumber: "ر أ ل 6496 (LAR 6496)",
@@ -207,7 +179,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "Tayseer Arabian Company",
     department: "Jebreel",
     installment: 2763,
-    deductionDay: 27
+    deductionDay: 27,
+    firstInstallmentDate: "3/27/23",
+    totalMonths: 36,
+    lastInstallmentDate: "2/27/26"
   },
   {
     plateNumber: "ب ط أ 6231 (ATB 6231)",
@@ -252,7 +227,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Hassan",
     installment: 2843,
-    deductionDay: 6
+    deductionDay: 6,
+    firstInstallmentDate: "10/6/23",
+    totalMonths: 48,
+    lastInstallmentDate: "10/6/27"
   },
   {
     plateNumber: "ر د أ 5788 (ADR 5788)",
@@ -265,7 +243,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Frozen",
     installment: 2033,
-    deductionDay: 6
+    deductionDay: 6,
+    firstInstallmentDate: "10/5/22",
+    totalMonths: 48,
+    lastInstallmentDate: "9/5/26"
   },
   {
     plateNumber: "ب ط ط 8065 (TTB 8065)",
@@ -278,7 +259,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Mada",
     installment: 3146,
-    deductionDay: 6
+    deductionDay: 6,
+    firstInstallmentDate: "9/6/23",
+    totalMonths: 48,
+    lastInstallmentDate: "9/6/27"
   },
   {
     plateNumber: "ب ع ل 4314 (LEB 4314)",
@@ -291,7 +275,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Frozen",
     installment: 3807,
-    deductionDay: 15
+    deductionDay: 15,
+    firstInstallmentDate: "5/14/25",
+    totalMonths: 48,
+    lastInstallmentDate: "5/14/29"
   },
   {
     plateNumber: "ب ع ل 4315 (LEB 4315)",
@@ -304,7 +291,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Mada",
     installment: 3586,
-    deductionDay: 14
+    deductionDay: 14,
+    firstInstallmentDate: "5/14/25",
+    totalMonths: 48,
+    lastInstallmentDate: "5/14/29"
   },
   {
     plateNumber: "ب ع س 4338 (SEB 4338)",
@@ -317,7 +307,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Team Babu",
     installment: 7397,
-    deductionDay: 9
+    deductionDay: 9,
+    firstInstallmentDate: "10/9/24",
+    totalMonths: 48,
+    lastInstallmentDate: "10/9/28"
   },
   {
     plateNumber: "ب ط س 4623 (STB 4623)",
@@ -330,7 +323,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Osaimi",
     installment: 4535,
-    deductionDay: 6
+    deductionDay: 6,
+    firstInstallmentDate: "10/6/23",
+    totalMonths: 48,
+    lastInstallmentDate: "10/6/27"
   },
   {
     plateNumber: "ب ط ط 8060 (TTB 8060)",
@@ -343,7 +339,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Mada",
     installment: 3146,
-    deductionDay: 6
+    deductionDay: 6,
+    firstInstallmentDate: "9/6/23",
+    totalMonths: 48,
+    lastInstallmentDate: "9/6/27"
   },
   {
     plateNumber: "ب ص ط 3263 (TXB 3263)",
@@ -356,7 +355,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Frozen",
     installment: 3197,
-    deductionDay: 6
+    deductionDay: 6,
+    firstInstallmentDate: "10/5/22",
+    totalMonths: 48,
+    lastInstallmentDate: "9/5/26"
   },
   {
     plateNumber: "ر و ق 1513 (GUR 1513)",
@@ -369,7 +371,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Osaimi",
     installment: 3807,
-    deductionDay: 15
+    deductionDay: 15,
+    firstInstallmentDate: "5/14/25",
+    totalMonths: 48,
+    lastInstallmentDate: "5/14/29"
   },
   {
     plateNumber: "ب ع ل 4313 (LEB 4313)",
@@ -382,7 +387,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Team Babu",
     installment: 4064,
-    deductionDay: 14
+    deductionDay: 14,
+    firstInstallmentDate: "5/14/25",
+    totalMonths: 48,
+    lastInstallmentDate: "5/14/29"
   },
   {
     plateNumber: "ر ك ي 1646 (VKR 1646)",
@@ -395,7 +403,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Frozen",
     installment: 3690,
-    deductionDay: 8
+    deductionDay: 8,
+    firstInstallmentDate: "10/9/24",
+    totalMonths: 48,
+    lastInstallmentDate: "10/9/28"
   },
   {
     plateNumber: "ر د أ 8650 (ADR 8650)",
@@ -408,7 +419,10 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Madinah",
     installment: 3215,
-    deductionDay: 6
+    deductionDay: 6,
+    firstInstallmentDate: "10/5/22",
+    totalMonths: 48,
+    lastInstallmentDate: "9/5/26"
   },
   {
     plateNumber: "ب ط ط 8059 (TTB 8059)",
@@ -421,12 +435,12 @@ const rawVehicleData: Partial<Vehicle>[] = [
     ownerName: "ALRAJHI BANK",
     department: "Madinah",
     installment: 2735,
-    deductionDay: 6
+    deductionDay: 6,
+    firstInstallmentDate: "7/6/23",
+    totalMonths: 48,
+    lastInstallmentDate: "7/6/27"
   }
 ]
-
-// Apply default payment data to all vehicles
-const vehicleData: Vehicle[] = rawVehicleData.map(addDefaultPaymentData)
 
 const getDepartmentColor = (department: string) => {
   switch (department.toLowerCase()) {
@@ -535,7 +549,6 @@ export default function VehicleLoanManager() {
   const [selectedOwner, setSelectedOwner] = useState<string>('all')
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
-  const [currentTime, setCurrentTime] = useState(new Date())
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
 
   const toggleRowExpansion = (index: number) => {
@@ -611,9 +624,10 @@ export default function VehicleLoanManager() {
   // Real-time countdown update
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date())
+      // Force re-render for real-time updates
+      setSelectedDepartment(prev => prev)
     }, 1000)
-    
+
     return () => clearInterval(timer)
   }, [])
 
