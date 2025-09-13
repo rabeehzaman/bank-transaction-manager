@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Car, Filter, CalendarDays, Clock, Calendar, Timer, AlertCircle, Sparkles, ChevronDown, ChevronUp, DollarSign, CheckCircle, Clock4, TrendingUp, Target } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Car, Filter, CalendarDays, Clock, Calendar, Timer, AlertCircle, Sparkles, ChevronDown, ChevronUp, DollarSign, CheckCircle, Clock4, TrendingUp, Target, Search, X } from 'lucide-react'
 
 interface Vehicle {
   plateNumber: string
@@ -533,6 +534,7 @@ export default function VehicleLoanManager() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [selectedOwner, setSelectedOwner] = useState<string>('all')
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState<string>('')
   const [currentTime, setCurrentTime] = useState(new Date())
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
 
@@ -559,6 +561,26 @@ export default function VehicleLoanManager() {
   const filteredVehicles = useMemo(() => {
     let filtered = vehicleData
 
+    // Search functionality
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim()
+      filtered = filtered.filter(vehicle => {
+        const searchFields = [
+          vehicle.plateNumber.toLowerCase(),
+          vehicle.vehicleMaker.toLowerCase(),
+          vehicle.vehicleModel.toLowerCase(),
+          vehicle.installment.toString(),
+          vehicle.department.toLowerCase(),
+          vehicle.ownerName.toLowerCase(),
+          vehicle.bodyType.toLowerCase(),
+          // Also search in plate number without spaces/parentheses for better matching
+          vehicle.plateNumber.replace(/[\s()]/g, '').toLowerCase()
+        ]
+
+        return searchFields.some(field => field.includes(query))
+      })
+    }
+
     if (selectedDepartment !== 'all') {
       filtered = filtered.filter(vehicle => vehicle.department === selectedDepartment)
     }
@@ -580,7 +602,7 @@ export default function VehicleLoanManager() {
     }
 
     return filtered
-  }, [selectedDepartment, selectedOwner, selectedPaymentStatus])
+  }, [searchQuery, selectedDepartment, selectedOwner, selectedPaymentStatus])
 
   const totalInstallments = useMemo(() => {
     return filteredVehicles.reduce((sum, vehicle) => sum + vehicle.installment, 0)
@@ -674,6 +696,29 @@ export default function VehicleLoanManager() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Search Bar */}
+          <div className="mb-6">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground transform -translate-y-1/2" />
+              <Input
+                placeholder="Search by plate number, vehicle, amount, department..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-10"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-1 top-1/2 h-6 w-6 p-0 transform -translate-y-1/2"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center gap-4 mb-6">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4" />
