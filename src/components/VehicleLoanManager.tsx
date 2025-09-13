@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Car, Filter, CalendarDays, Clock, Calendar, Timer, AlertCircle, Sparkles } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import { Car, Filter, CalendarDays, Clock, Calendar, Timer, AlertCircle, Sparkles, ChevronDown, ChevronUp, DollarSign, CheckCircle, Clock4, TrendingUp, Target } from 'lucide-react'
 
 interface Vehicle {
   plateNumber: string
@@ -19,9 +21,55 @@ interface Vehicle {
   department: string
   installment: number
   deductionDay: number
+  firstInstallmentDate: string
+  totalMonths: number
+  lastInstallmentDate: string
 }
 
-const vehicleData: Vehicle[] = [
+interface PaymentCalculation {
+  paidMonths: number
+  paidAmount: number
+  totalRepayment: number
+  remainingAmount: number
+  remainingMonths: number
+  progressPercentage: number
+  nextPaymentDate: Date
+  daysUntilNext: number
+  isOverdue: boolean
+}
+
+// Add default payment data for vehicles missing payment information
+const addDefaultPaymentData = (vehicle: Partial<Vehicle>): Vehicle => {
+  // If payment data is missing, infer from deduction day and owner
+  if (!vehicle.firstInstallmentDate) {
+    if (vehicle.ownerName === 'Tayseer Arabian Company') {
+      return {
+        ...vehicle,
+        firstInstallmentDate: vehicle.deductionDay === 27 ? '3/27/23' : '7/27/22',
+        totalMonths: 36,
+        lastInstallmentDate: vehicle.deductionDay === 27 ? '2/27/26' : '6/27/25'
+      } as Vehicle
+    } else if (vehicle.ownerName === 'ALRAJHI BANK') {
+      return {
+        ...vehicle,
+        firstInstallmentDate: vehicle.deductionDay === 6 ? '8/6/23' :
+                             vehicle.deductionDay === 15 ? '5/14/25' :
+                             vehicle.deductionDay === 14 ? '5/14/25' :
+                             vehicle.deductionDay === 9 ? '10/9/24' :
+                             vehicle.deductionDay === 8 ? '10/9/24' : '10/5/22',
+        totalMonths: 48,
+        lastInstallmentDate: vehicle.deductionDay === 6 ? '8/6/27' :
+                            vehicle.deductionDay === 15 ? '5/14/29' :
+                            vehicle.deductionDay === 14 ? '5/14/29' :
+                            vehicle.deductionDay === 9 ? '10/9/28' :
+                            vehicle.deductionDay === 8 ? '10/9/28' : '9/5/26'
+      } as Vehicle
+    }
+  }
+  return vehicle as Vehicle
+}
+
+const rawVehicleData: Partial<Vehicle>[] = [
   {
     plateNumber: "ب ص و 1521 (UXB 1521)",
     plateType: "Private Transport",
@@ -33,7 +81,10 @@ const vehicleData: Vehicle[] = [
     ownerName: "Tayseer Arabian Company",
     department: "Frozen",
     installment: 5867,
-    deductionDay: 27
+    deductionDay: 27,
+    firstInstallmentDate: "3/27/23",
+    totalMonths: 36,
+    lastInstallmentDate: "2/27/26"
   },
   {
     plateNumber: "ب ص ب 5735 (BXB 5735)",
@@ -46,7 +97,10 @@ const vehicleData: Vehicle[] = [
     ownerName: "Tayseer Arabian Company",
     department: "Frozen",
     installment: 3760,
-    deductionDay: 27
+    deductionDay: 27,
+    firstInstallmentDate: "7/27/22",
+    totalMonths: 36,
+    lastInstallmentDate: "6/27/25"
   },
   {
     plateNumber: "ب ص ن 8304 (NXB 8304)",
@@ -58,8 +112,11 @@ const vehicleData: Vehicle[] = [
     majorColor: "ابيض (White)",
     ownerName: "Tayseer Arabian Company",
     department: "Qurban",
-    installment: 4200,
-    deductionDay: 27
+    installment: 4123,
+    deductionDay: 27,
+    firstInstallmentDate: "3/27/23",
+    totalMonths: 36,
+    lastInstallmentDate: "2/27/26"
   },
   {
     plateNumber: "ب ص ب 5754 (BXB 5754)",
@@ -72,7 +129,10 @@ const vehicleData: Vehicle[] = [
     ownerName: "Tayseer Arabian Company",
     department: "Waleed",
     installment: 3760,
-    deductionDay: 27
+    deductionDay: 27,
+    firstInstallmentDate: "7/27/22",
+    totalMonths: 36,
+    lastInstallmentDate: "6/27/25"
   },
   {
     plateNumber: "أ أ ط 8292 (TAA 8292)",
@@ -85,7 +145,10 @@ const vehicleData: Vehicle[] = [
     ownerName: "Tayseer Arabian Company",
     department: "Frozen",
     installment: 4686,
-    deductionDay: 27
+    deductionDay: 27,
+    firstInstallmentDate: "3/27/23",
+    totalMonths: 36,
+    lastInstallmentDate: "2/27/26"
   },
   {
     plateNumber: "ب ص و 1520 (UXB 1520)",
@@ -98,7 +161,10 @@ const vehicleData: Vehicle[] = [
     ownerName: "Tayseer Arabian Company",
     department: "Frozen",
     installment: 5867,
-    deductionDay: 27
+    deductionDay: 27,
+    firstInstallmentDate: "3/27/23",
+    totalMonths: 36,
+    lastInstallmentDate: "2/27/26"
   },
   {
     plateNumber: "ب ص ب 5737 (BXB 5737)",
@@ -124,7 +190,10 @@ const vehicleData: Vehicle[] = [
     ownerName: "Tayseer Arabian Company",
     department: "Frozen",
     installment: 4154,
-    deductionDay: 27
+    deductionDay: 27,
+    firstInstallmentDate: "7/27/22",
+    totalMonths: 36,
+    lastInstallmentDate: "6/27/25"
   },
   {
     plateNumber: "ر ر ك 3027 (KRR 3027)",
@@ -136,7 +205,7 @@ const vehicleData: Vehicle[] = [
     majorColor: "ابيض (White)",
     ownerName: "Tayseer Arabian Company",
     department: "Jebreel",
-    installment: 2700,
+    installment: 2763,
     deductionDay: 27
   },
   {
@@ -150,7 +219,10 @@ const vehicleData: Vehicle[] = [
     ownerName: "ALRAJHI BANK",
     department: "Qurban",
     installment: 4317,
-    deductionDay: 6
+    deductionDay: 6,
+    firstInstallmentDate: "8/6/23",
+    totalMonths: 48,
+    lastInstallmentDate: "8/6/27"
   },
   {
     plateNumber: "ب ط ح 5936 (JTB 5936)",
@@ -163,7 +235,10 @@ const vehicleData: Vehicle[] = [
     ownerName: "ALRAJHI BANK",
     department: "Team Babu",
     installment: 7117,
-    deductionDay: 6
+    deductionDay: 6,
+    firstInstallmentDate: "7/6/23",
+    totalMonths: 48,
+    lastInstallmentDate: "7/6/27"
   },
   {
     plateNumber: "ب ط ح 5937 (JTB 5937)",
@@ -349,6 +424,9 @@ const vehicleData: Vehicle[] = [
   }
 ]
 
+// Apply default payment data to all vehicles
+const vehicleData: Vehicle[] = rawVehicleData.map(addDefaultPaymentData)
+
 const getDepartmentColor = (department: string) => {
   switch (department.toLowerCase()) {
     case 'frozen': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300'
@@ -376,12 +454,61 @@ const getDeductionDateColor = (day: number) => {
   }
 }
 
+// Helper functions for payment calculations
+const parseDate = (dateStr: string): Date => {
+  const [month, day, year] = dateStr.split('/')
+  const fullYear = parseInt(year) < 50 ? 2000 + parseInt(year) : 1900 + parseInt(year)
+  return new Date(fullYear, parseInt(month) - 1, parseInt(day))
+}
+
+const calculatePaymentDetails = (vehicle: Vehicle): PaymentCalculation => {
+  const startDate = parseDate(vehicle.firstInstallmentDate)
+  const today = new Date()
+
+  // Calculate how many payments have been made
+  let paidMonths = 0
+  const paymentDate = new Date(startDate)
+
+  while (paymentDate <= today && paidMonths < vehicle.totalMonths) {
+    paidMonths++
+    paymentDate.setMonth(paymentDate.getMonth() + 1)
+  }
+
+  // Ensure we don't exceed total months
+  paidMonths = Math.min(paidMonths, vehicle.totalMonths)
+
+  const paidAmount = paidMonths * vehicle.installment
+  const totalRepayment = vehicle.totalMonths * vehicle.installment
+  const remainingAmount = totalRepayment - paidAmount
+  const remainingMonths = vehicle.totalMonths - paidMonths
+  const progressPercentage = (paidMonths / vehicle.totalMonths) * 100
+
+  // Calculate next payment date
+  const nextPaymentDate = new Date(startDate)
+  nextPaymentDate.setMonth(startDate.getMonth() + paidMonths)
+
+  const daysUntilNext = Math.ceil((nextPaymentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  const isOverdue = daysUntilNext < 0 && remainingMonths > 0
+
+  return {
+    paidMonths,
+    paidAmount,
+    totalRepayment,
+    remainingAmount,
+    remainingMonths,
+    progressPercentage,
+    nextPaymentDate,
+    daysUntilNext: Math.max(0, daysUntilNext),
+    isOverdue
+  }
+}
+
 // Helper functions for countdown calculation
 const getNextDeductionDate = (day: number) => {
   const today = new Date()
   const currentMonth = today.getMonth()
   const currentDay = today.getDate()
-  
+
   if (currentDay <= day) {
     // This month
     return new Date(today.getFullYear(), currentMonth, day)
@@ -405,7 +532,19 @@ const getCountdown = (targetDate: Date) => {
 export default function VehicleLoanManager() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [selectedOwner, setSelectedOwner] = useState<string>('all')
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>('all')
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
+
+  const toggleRowExpansion = (index: number) => {
+    const newExpanded = new Set(expandedRows)
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index)
+    } else {
+      newExpanded.add(index)
+    }
+    setExpandedRows(newExpanded)
+  }
 
   const departments = useMemo(() => {
     const depts = Array.from(new Set(vehicleData.map(v => v.department)))
@@ -419,17 +558,29 @@ export default function VehicleLoanManager() {
 
   const filteredVehicles = useMemo(() => {
     let filtered = vehicleData
-    
+
     if (selectedDepartment !== 'all') {
       filtered = filtered.filter(vehicle => vehicle.department === selectedDepartment)
     }
-    
+
     if (selectedOwner !== 'all') {
       filtered = filtered.filter(vehicle => vehicle.ownerName === selectedOwner)
     }
-    
+
+    if (selectedPaymentStatus !== 'all') {
+      filtered = filtered.filter(vehicle => {
+        const paymentDetails = calculatePaymentDetails(vehicle)
+        if (selectedPaymentStatus === 'completed') {
+          return paymentDetails.remainingMonths === 0
+        } else if (selectedPaymentStatus === 'pending') {
+          return paymentDetails.remainingMonths > 0
+        }
+        return true
+      })
+    }
+
     return filtered
-  }, [selectedDepartment, selectedOwner])
+  }, [selectedDepartment, selectedOwner, selectedPaymentStatus])
 
   const totalInstallments = useMemo(() => {
     return filteredVehicles.reduce((sum, vehicle) => sum + vehicle.installment, 0)
@@ -479,7 +630,7 @@ export default function VehicleLoanManager() {
         urgency: false
       }
     ]
-  }, [filteredVehicles, currentTime])
+  }, [filteredVehicles])
 
   return (
     <div className="space-y-6">
@@ -566,6 +717,32 @@ export default function VehicleLoanManager() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="flex items-center gap-2">
+              <label htmlFor="payment-status-filter" className="text-sm font-medium">
+                Payment Status:
+              </label>
+              <Select value={selectedPaymentStatus} onValueChange={setSelectedPaymentStatus}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="completed">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      Completed
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="pending">
+                    <div className="flex items-center gap-2">
+                      <Clock4 className="h-4 w-4 text-orange-600" />
+                      Pending
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Vehicle Table */}
@@ -573,11 +750,13 @@ export default function VehicleLoanManager() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">Expand</TableHead>
                   <TableHead className="w-32">Plate Number</TableHead>
                   <TableHead className="w-20">Type</TableHead>
                   <TableHead>Vehicle Details</TableHead>
                   <TableHead>Owner</TableHead>
                   <TableHead>Department</TableHead>
+                  <TableHead>Payment Status</TableHead>
                   <TableHead>
                     <div className="flex items-center gap-1">
                       <CalendarDays className="h-4 w-4" />
@@ -590,6 +769,9 @@ export default function VehicleLoanManager() {
               <TableBody>
                 {/* Total Row */}
                 <TableRow className="bg-muted/50 font-semibold border-b-2">
+                  <TableCell className="text-lg">
+                  <Target className="h-5 w-5 text-blue-600" />
+                </TableCell>
                   <TableCell colSpan={4} className="text-lg">
                     <div className="flex items-center gap-2">
                       <Car className="h-5 w-5" />
@@ -603,6 +785,11 @@ export default function VehicleLoanManager() {
                   </TableCell>
                   <TableCell className="text-lg">
                     <Badge variant="outline" className="text-sm px-3 py-1">
+                      Portfolio
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-lg">
+                    <Badge variant="outline" className="text-sm px-3 py-1">
                       Various
                     </Badge>
                   </TableCell>
@@ -612,9 +799,26 @@ export default function VehicleLoanManager() {
                     </Badge>
                   </TableCell>
                 </TableRow>
-                {filteredVehicles.map((vehicle, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-mono font-medium">
+                {filteredVehicles.map((vehicle, index) => {
+                  const paymentDetails = calculatePaymentDetails(vehicle)
+                  const isExpanded = expandedRows.has(index)
+
+                  return (
+                    <React.Fragment key={index}>
+                      <TableRow
+                        className={`hover:bg-muted/50 transition-all duration-200 cursor-pointer ${
+                          isExpanded
+                            ? 'bg-blue-50/60 dark:bg-blue-950/30 border-l-2 border-l-blue-400 dark:border-l-blue-500 shadow-sm'
+                            : ''
+                        }`}
+                        onClick={() => toggleRowExpansion(index)}
+                      >
+                        <TableCell className="text-center">
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </Button>
+                        </TableCell>
+                        <TableCell className="font-mono font-medium">
                       <div className="space-y-1">
                         <div className="text-sm font-bold">
                           {vehicle.plateNumber.split(' (')[0]}
@@ -665,23 +869,190 @@ export default function VehicleLoanManager() {
                         {vehicle.ownerName}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge className={getDepartmentColor(vehicle.department)}>
-                        {vehicle.department}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`font-mono text-sm px-3 py-1 ${getDeductionDateColor(vehicle.deductionDay)}`}>
-                        {vehicle.deductionDay}th
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      <Badge variant="outline" className="font-mono text-sm px-3 py-1 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
-                        SAR {vehicle.installment.toLocaleString()}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        <TableCell>
+                          <Badge className={getDepartmentColor(vehicle.department)}>
+                            {vehicle.department}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-col gap-1">
+                              <div className="text-sm font-medium">
+                                {paymentDetails.paidMonths}/{vehicle.totalMonths} months
+                              </div>
+                              <Progress value={paymentDetails.progressPercentage} className="h-2 w-20" />
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {paymentDetails.progressPercentage.toFixed(0)}%
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`font-mono text-sm px-3 py-1 ${getDeductionDateColor(vehicle.deductionDay)}`}>
+                            {vehicle.deductionDay}th
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          <Badge variant="outline" className="font-mono text-sm px-3 py-1 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
+                            SAR {vehicle.installment.toLocaleString()}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Expanded Payment Details Row */}
+                      {isExpanded && (
+                        <TableRow className="bg-blue-50/80 dark:bg-blue-950/50 border-l-4 border-l-blue-400 dark:border-l-blue-500 transition-all duration-300 ease-in-out">
+                          <TableCell colSpan={9} className="py-8 px-6 border-t-2 border-t-blue-200 dark:border-t-blue-700/50">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                              {/* Payment Timeline */}
+                              <Card className="border-blue-300 dark:border-blue-600 shadow-md hover:shadow-lg transition-shadow duration-200 bg-white dark:bg-gray-900/90">
+                                <CardContent className="p-5">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Calendar className="h-4 w-4 text-blue-600" />
+                                    <h4 className="font-semibold text-blue-900 dark:text-blue-100">Payment Timeline</h4>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Start Date:</span>
+                                      <span className="font-medium">{vehicle.firstInstallmentDate}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">End Date:</span>
+                                      <span className="font-medium">{vehicle.lastInstallmentDate}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Duration:</span>
+                                      <span className="font-medium">{vehicle.totalMonths} months</span>
+                                    </div>
+                                    <div className="border-t pt-2 mt-2">
+                                      <Progress value={paymentDetails.progressPercentage} className="h-3 mb-2" />
+                                      <div className="text-center text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                        {paymentDetails.progressPercentage.toFixed(1)}% Complete
+                                      </div>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+
+                              {/* Payment Status */}
+                              <Card className="border-green-300 dark:border-green-600 shadow-md hover:shadow-lg transition-shadow duration-200 bg-white dark:bg-gray-900/90">
+                                <CardContent className="p-5">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <DollarSign className="h-4 w-4 text-green-600" />
+                                    <h4 className="font-semibold text-green-900 dark:text-green-100">Payment Status</h4>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Paid Amount:</span>
+                                      <span className="font-medium text-green-600">SAR {paymentDetails.paidAmount.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Total Repayment:</span>
+                                      <span className="font-medium">SAR {paymentDetails.totalRepayment.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between border-t pt-2">
+                                      <span className="text-muted-foreground">Remaining:</span>
+                                      <span className="font-medium text-orange-600">SAR {paymentDetails.remainingAmount.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Months Left:</span>
+                                      <span className="font-medium">{paymentDetails.remainingMonths} months</span>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+
+                              {/* Next Payment */}
+                              <Card className={`shadow-md hover:shadow-lg transition-shadow duration-200 ${
+                                paymentDetails.isOverdue
+                                  ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-950/20'
+                                  : paymentDetails.daysUntilNext <= 7
+                                    ? 'border-yellow-300 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-950/20'
+                                    : 'border-blue-300 dark:border-blue-600 bg-white dark:bg-gray-900/90'
+                              }`}>
+                                <CardContent className="p-5">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Timer className={`h-4 w-4 ${
+                                      paymentDetails.isOverdue
+                                        ? 'text-red-600'
+                                        : paymentDetails.daysUntilNext <= 7
+                                          ? 'text-yellow-600'
+                                          : 'text-blue-600'
+                                    }`} />
+                                    <h4 className={`font-semibold ${
+                                      paymentDetails.isOverdue
+                                        ? 'text-red-900 dark:text-red-100'
+                                        : paymentDetails.daysUntilNext <= 7
+                                          ? 'text-yellow-900 dark:text-yellow-100'
+                                          : 'text-blue-900 dark:text-blue-100'
+                                    }`}>Next Payment</h4>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
+                                    {paymentDetails.remainingMonths > 0 ? (
+                                      <>
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Due Date:</span>
+                                          <span className="font-medium">
+                                            {paymentDetails.nextPaymentDate.toLocaleDateString()}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Amount:</span>
+                                          <span className="font-medium">SAR {vehicle.installment.toLocaleString()}</span>
+                                        </div>
+                                        <div className={`text-center p-2 rounded text-sm font-medium ${
+                                          paymentDetails.isOverdue
+                                            ? 'bg-red-100 text-red-800'
+                                            : paymentDetails.daysUntilNext <= 7
+                                              ? 'bg-yellow-100 text-yellow-800'
+                                              : 'bg-blue-100 text-blue-800'
+                                        }`}>
+                                          {paymentDetails.isOverdue
+                                            ? (
+                                                <div className="flex items-center gap-1">
+                                                  <AlertCircle className="h-4 w-4" />
+                                                  OVERDUE
+                                                </div>
+                                              )
+                                            : paymentDetails.daysUntilNext === 0
+                                              ? (
+                                                  <div className="flex items-center gap-1">
+                                                    <Clock4 className="h-4 w-4" />
+                                                    DUE TODAY
+                                                  </div>
+                                                )
+                                              : paymentDetails.daysUntilNext <= 7
+                                                ? (
+                                                    <div className="flex items-center gap-1">
+                                                      <Timer className="h-4 w-4" />
+                                                      Due in {paymentDetails.daysUntilNext} days
+                                                    </div>
+                                                  )
+                                                : (
+                                                    <div className="flex items-center gap-1">
+                                                      <Calendar className="h-4 w-4" />
+                                                      Due in {paymentDetails.daysUntilNext} days
+                                                    </div>
+                                                  )
+                                          }
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="text-center p-3 bg-green-100 text-green-800 rounded font-medium flex items-center justify-center gap-1">
+                                        <CheckCircle className="h-4 w-4" />
+                                        LOAN COMPLETED
+                                      </div>
+                                    )}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
