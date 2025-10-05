@@ -548,6 +548,7 @@ export default function VehicleLoanManager() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [selectedOwner, setSelectedOwner] = useState<string>('all')
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>('all')
+  const [selectedDeductionDay, setSelectedDeductionDay] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
 
@@ -569,6 +570,11 @@ export default function VehicleLoanManager() {
   const owners = useMemo(() => {
     const ownerList = Array.from(new Set(vehicleData.map(v => v.ownerName)))
     return ownerList.sort()
+  }, [])
+
+  const deductionDays = useMemo(() => {
+    const days = Array.from(new Set(vehicleData.map(v => v.deductionDay)))
+    return days.sort((a, b) => a - b)
   }, [])
 
   const filteredVehicles = useMemo(() => {
@@ -614,8 +620,12 @@ export default function VehicleLoanManager() {
       })
     }
 
+    if (selectedDeductionDay !== 'all') {
+      filtered = filtered.filter(vehicle => vehicle.deductionDay === parseInt(selectedDeductionDay))
+    }
+
     return filtered
-  }, [searchQuery, selectedDepartment, selectedOwner, selectedPaymentStatus])
+  }, [searchQuery, selectedDepartment, selectedOwner, selectedPaymentStatus, selectedDeductionDay])
 
   const totalInstallments = useMemo(() => {
     return filteredVehicles.reduce((sum, vehicle) => sum + vehicle.installment, 0)
@@ -799,6 +809,27 @@ export default function VehicleLoanManager() {
                       Pending
                     </div>
                   </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label htmlFor="deduction-day-filter" className="text-sm font-medium">
+                Deduction Date:
+              </label>
+              <Select value={selectedDeductionDay} onValueChange={setSelectedDeductionDay}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Select date" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Dates</SelectItem>
+                  {deductionDays.map(day => (
+                    <SelectItem key={day} value={day.toString()}>
+                      <Badge variant="outline" className={`${getDeductionDateColor(day)} text-xs`}>
+                        {day}th of month
+                      </Badge>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
