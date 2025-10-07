@@ -613,9 +613,11 @@ export default function VehicleLoanManager() {
         const paymentDetails = calculatePaymentDetails(vehicle)
         if (selectedPaymentStatus === 'completed') {
           return paymentDetails.remainingMonths === 0
-        } else if (selectedPaymentStatus.startsWith('< ')) {
-          const months = parseInt(selectedPaymentStatus.substring(2))
-          return paymentDetails.remainingMonths > 0 && paymentDetails.remainingMonths < months
+        } else if (selectedPaymentStatus === '36+') {
+          return paymentDetails.remainingMonths >= 36
+        } else if (selectedPaymentStatus.includes('-')) {
+          const [min, max] = selectedPaymentStatus.split('-').map(Number)
+          return paymentDetails.remainingMonths >= min && paymentDetails.remainingMonths < max
         }
         return true
       })
@@ -798,40 +800,46 @@ export default function VehicleLoanManager() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="< 6">
+                  <SelectItem value="0-6">
                     <div className="flex items-center gap-2">
                       <AlertCircle className="h-4 w-4 text-red-600" />
                       Less than 6 months
                     </div>
                   </SelectItem>
-                  <SelectItem value="< 12">
+                  <SelectItem value="6-12">
                     <div className="flex items-center gap-2">
                       <Clock4 className="h-4 w-4 text-orange-600" />
-                      Less than 1 year
+                      6 months - 1 year
                     </div>
                   </SelectItem>
-                  <SelectItem value="< 18">
+                  <SelectItem value="12-18">
                     <div className="flex items-center gap-2">
                       <Timer className="h-4 w-4 text-amber-600" />
-                      Less than 1.5 years
+                      1 year - 1.5 years
                     </div>
                   </SelectItem>
-                  <SelectItem value="< 24">
+                  <SelectItem value="18-24">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-yellow-600" />
-                      Less than 2 years
+                      1.5 years - 2 years
                     </div>
                   </SelectItem>
-                  <SelectItem value="< 30">
+                  <SelectItem value="24-30">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="h-4 w-4 text-blue-600" />
-                      Less than 2.5 years
+                      2 years - 2.5 years
                     </div>
                   </SelectItem>
-                  <SelectItem value="< 36">
+                  <SelectItem value="30-36">
                     <div className="flex items-center gap-2">
                       <Target className="h-4 w-4 text-purple-600" />
-                      Less than 3 years
+                      2.5 years - 3 years
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="36+">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-indigo-600" />
+                      More than 3 years
                     </div>
                   </SelectItem>
                   <SelectItem value="completed">
